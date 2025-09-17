@@ -14,3 +14,18 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
 - Started working on menu system
 - Can display .jsons from a folder
 - Can menu has scroll wheel capabilities
+
+## TODO
+- Menu (2 weeks)
+  - Create new files
+  - Import Files
+  - Open the editor of a specific file
+  - Delete files
+- Editor
+  - Create custom file syntax (1-2 weeks)
+  - Create new parts (<1 week)
+  - Chart notes (1-2 weeks)
+  - Copy/Paste and other tools (2-3 weeks)
+  - Playback (2-3 weeks)
+- Output
+  - Save to games code (>1 week)
