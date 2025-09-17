@@ -28,4 +28,4 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
   - Copy/Paste and other tools (2-3 weeks)
   - Playback (2-3 weeks)
 - Output
-  - Save to games code (>1 week)
+  - Save to games code (<1 week)
