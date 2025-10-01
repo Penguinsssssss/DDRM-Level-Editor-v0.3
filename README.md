@@ -1,6 +1,23 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+## Tue Sep. 30
+- Added "edit" tab to level display
+  - Able to Playback/Edit/Delete levels from menu
+
+## Thurs Sep. 26
+- Changed menu dimensions (16:9 - 4:9)
+- Updated all buttons accordingly
+
+## Mon Sep. 22
+- New font (ebrima.ttf)
+- 
+
+## Thurs Sep. 11
+- Fully concepted level storing system
+  - .json format
+  - List level attributes at top of page (name, bpm, key, etc)
+
 ## Tuesday Sep. 9
 - Added three new themes
 - Buttons can now detect when they are clicked
