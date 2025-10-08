@@ -1,6 +1,13 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+## Wed Oct. 8
+- Levels now have interactable buttons
+  - Playback
+  - Edit
+  - Delete
+- Clicking edit opens an editor instance for the given level
+
 ## Tue Sep. 30
 - Added "edit" tab to level display
   - Able to Playback/Edit/Delete levels from menu
