@@ -18,7 +18,7 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
 
 ## Mon Sep. 22
 - New font (ebrima.ttf)
-- 
+
 
 ## Thurs Sep. 11
 - Fully concepted level storing system
