@@ -139,15 +139,18 @@ colorPalette = {
     "other": {
         "black": "#000000",
         "white": "#FFFFFF",
-        "delete": "#FF7777", #button fills
-        "edit": "#77FF77",
-        "play": "#7777FF",
-        "deleteout": "#AA4444", #button outlines
-        "editout": "#44AA44",
-        "playout": "#4444AA",
-        "sdeleteout": "#881111", #selected variants
-        "seditout": "#118811",
-        "splayout": "#333388",
+        "gray": "#888888",
+        "lightgray": "#BBBBBB",
+        "darkgray": "#444444",
+        "del1": "#FF7777", #button fills
+        "edit1": "#77FF77",
+        "play1": "#7777FF",
+        "del2": "#AA4444", #button outlines
+        "edit2": "#44AA44",
+        "play2": "#4444AA",
+        "del3": "#883333", #selected variants
+        "edit3": "#118811",
+        "play3": "#404088",
         }
 }
 
@@ -177,6 +180,7 @@ class Menu():
         
         #globals
         self.scroll = 0
+        self.path = levels_path
     
     def update(self):
         
@@ -194,7 +198,10 @@ class Menu():
                 print(i.name, i.recieveClick(pos))
                 if i.recieveClick(pos) == "edit":
                     #open an editor instance of a given path
-                    de.initEditor(i.path)
+                    pygame.quit()
+                    de.path = i.path
+                    de.theme = theme
+                    de.main()
 
     class LevelButton():
         
@@ -237,16 +244,16 @@ class Menu():
             bx2 = rightmargin - 0.03
             
             #delete
-            pygame.draw.rect(self.screen, colorPalette["other"]["sdeleteout" if self.ddark else "deleteout"], pm.drawAbsolute(bx1, y + 0.20, bx2, y + 0.24, self.parent.scX, self.parent.scY), 0, 5)
-            pygame.draw.rect(self.screen, colorPalette["other"]["deleteout" if self.ddark else "delete"], pm.drawAbsolute(bx1, y + 0.20, bx2, y + 0.24, self.parent.scX, self.parent.scY), 2, 5)
+            pygame.draw.rect(self.screen, colorPalette["other"]["del3" if self.ddark else "del2"], pm.drawAbsolute(bx1, y + 0.20, bx2, y + 0.24, self.parent.scX, self.parent.scY), 0, 5)
+            pygame.draw.rect(self.screen, colorPalette["other"]["del2" if self.ddark else "del1"], pm.drawAbsolute(bx1, y + 0.20, bx2, y + 0.24, self.parent.scX, self.parent.scY), 2, 5)
             
             #edit
-            pygame.draw.rect(self.screen, colorPalette["other"]["seditout" if self.edark else "editout"], pm.drawAbsolute(bx1, y + 0.15, bx2, y + 0.19, self.parent.scX, self.parent.scY), 0, 5)
-            pygame.draw.rect(self.screen, colorPalette["other"]["editout" if self.edark else "edit"], pm.drawAbsolute(bx1, y + 0.15, bx2, y + 0.19, self.parent.scX, self.parent.scY), 2, 5)
+            pygame.draw.rect(self.screen, colorPalette["other"]["edit3" if self.edark else "edit2"], pm.drawAbsolute(bx1, y + 0.15, bx2, y + 0.19, self.parent.scX, self.parent.scY), 0, 5)
+            pygame.draw.rect(self.screen, colorPalette["other"]["edit2" if self.edark else "edit1"], pm.drawAbsolute(bx1, y + 0.15, bx2, y + 0.19, self.parent.scX, self.parent.scY), 2, 5)
             
             #playback
-            pygame.draw.rect(self.screen, colorPalette["other"]["splayout" if self.pdark else "playout"], pm.drawAbsolute(bx1, y + 0.10, bx2, y + 0.14, self.parent.scX, self.parent.scY), 0, 5)
-            pygame.draw.rect(self.screen, colorPalette["other"]["playout" if self.pdark else "play"], pm.drawAbsolute(bx1, y + 0.10, bx2, y + 0.14, self.parent.scX, self.parent.scY), 2, 5)
+            pygame.draw.rect(self.screen, colorPalette["other"]["play3" if self.pdark else "play2"], pm.drawAbsolute(bx1, y + 0.10, bx2, y + 0.14, self.parent.scX, self.parent.scY), 0, 5)
+            pygame.draw.rect(self.screen, colorPalette["other"]["play2" if self.pdark else "play1"], pm.drawAbsolute(bx1, y + 0.10, bx2, y + 0.14, self.parent.scX, self.parent.scY), 2, 5)
             
             #update positions of screen elements
             self.pos = pm.drawAbsolute(leftmargin, y, rightmargin, y + 0.25, self.parent.scX, self.parent.scY)
@@ -354,7 +361,7 @@ class Menu():
 def main():
     
     #init
-    menu = Menu("c:/users/benjaminsullivan/downloads/ddrm3/testsongs")
+    menu = Menu("c:/users/benja/downloads/ddrm3/testsongs")
     clock = pygame.time.Clock()
     running = True
     menu.update()
