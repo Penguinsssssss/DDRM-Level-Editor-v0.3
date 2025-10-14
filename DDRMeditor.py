@@ -3,12 +3,12 @@
 import tkinter
 root = tkinter.Tk()
 import pygame
-pygame.init()
 import penguinsmodule as pm #type: ignore
 import os
 import json
 
 theme = "seaglass"
+path = None
 colorPalette = {
     "default": {
         "shade1": "#E0AAFF", #lightest
@@ -93,12 +93,29 @@ colorPalette = {
     "other": {
         "black": "#000000",
         "white": "#FFFFFF",
-        "delete": "#FF0000",
-        "edit": "#00AA00",
-        "play": "#0000FF",
-        "deleteout": "#AA0000",
-        "editout": "#005500",
-        "playout": "#0000AA",
+        "del1": "#FF7777", #button fills
+        "edit1": "#77FF77",
+        "play1": "#7777FF",
+        "del2": "#AA4444", #button outlines
+        "edit2": "#44AA44",
+        "play2": "#4444AA",
+        "del3": "#881111", #selected variants
+        "edit3": "#118811",
+        "play3": "#333388",
+        },
+    "notes": {
+        "drums": "#e12929",
+        "drumsout": "#940c0c",
+        "perc": "#e9852d",
+        "percout": "#9c500e",
+        "signature": "#fed141",
+        "signatureout": "#ad8916",
+        "harmony": "#1ec88d",
+        "harmonyout": "#038155",
+        "melody": "#287ce7",
+        "melodyout": "#0b4b9c",
+        "bass": "#6b3ad8",
+        "bassout": "#3c188c",
         }
 }
 
@@ -119,22 +136,37 @@ class Editor():
     
     def update(self):
         self.screen.fill(colorPalette[theme]["shade6"])
-        self.drawLanes()
+        self.drawUtilBar()
+        self.drawNotes()
         pygame.display.update()
     
-    def drawLanes(self):
+    def drawNotes(self):
         for i in self.notes:
+            
+            #consts
             height = 0.25
+            spacing = 0.08
+            thickness = 0.005
+            
             for j in range(i["lanes"]):
-                pygame.draw.rect(self.screen, colorPalette[theme]["shade8"], pm.drawAbsolute(0, height + (j * 0.08), 1, height + (j * 0.08) + 0.01, self.scX, self.scY), 3)
-
-def initEditor(path, ntheme):
-    global theme
-    theme = ntheme
-    return Editor(path)
+                pygame.draw.rect(self.screen, colorPalette[theme]["shade4"], pm.drawAbsolute(0, height + (j * spacing), 1, height + (j * spacing) + thickness, self.scX, self.scY), 0)
+            
+            for j in i["chart"]:
+                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], [j[0] * (self.scX / 10), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 0)
+                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"] + "out"], [j[0] * (self.scX / 10), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 5)
+    
+    def drawUtilBar(self):
+        
+        #consts
+        thickness = 0.05
+        
+        pygame.draw.rect(self.screen, colorPalette[theme]["shade8"], pm.drawAbsolute(0, 0, 1, thickness, self.scX, self.scY), 0)
 
 def main():
-    editor = Editor(r"c:\Users\BenjaminSullivan\Downloads\ddrm3\testsongs\library_ruins.json")
+    
+    pygame.init()
+    
+    editor = Editor(path)
     
     clock = pygame.time.Clock()
     running = True
@@ -150,4 +182,4 @@ def main():
         editor.update()
 
 if __name__ == "__main__":
-    main()
+    print(f"\n\nPlease run this file using #DDRM Menu.py!\n\n")
