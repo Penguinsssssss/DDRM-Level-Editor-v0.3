@@ -4,10 +4,11 @@ import tkinter
 root = tkinter.Tk()
 import pygame
 pygame.init()
-import penguinsmodule as pm #type: ignore
 import os
 import json
+import penguinsmodule as pm #type: ignore
 import DDRMeditor as de #type: ignore
+import DDRMpopups as dp #type: ignore
 
 # --- THEMES ---
 #Default: https://coolors.co/palette/10002b-240046-3c096c-5a189a-7b2cbf-9d4edd-c77dff-e0aaff
@@ -24,7 +25,7 @@ import DDRMeditor as de #type: ignore
 #better unnamed red: https://coolors.co/palette/641220-6e1423-85182a-a11d33-a71e34-b21e35-bd1f36-c71f37-da1e37-e01e37
 #unnamed teal: https://coolors.co/palette/99e2b4-88d4ab-78c6a3-67b99a-56ab91-469d89-358f80-248277-14746f-036666
 
-theme = "seaglass"
+theme = "default"
 colorPalette = {
     "default": {
         "shade1": "#E0AAFF", #lightest
@@ -96,7 +97,7 @@ colorPalette = {
         "shade2": "#D8C2FF",
         "shade1": "#E2C6FF", #lightest
         },
-    "red": {
+    "ruby": {
         "shade1": "#FC9CA2", #lightest
         "shade2": "#FB747D",
         "shade3": "#FA4C58",
@@ -171,6 +172,9 @@ class Menu():
                 print(f"File: {entry.name} (Path: {entry.path})")
                 levels[entry.name] = entry.path
         
+        #create new level button
+        self.addLevelButton = self.AddLevelButton(self, self.screen)
+        
         #create list of button objects
         self.levelButtons = []
         id = 1
@@ -186,6 +190,8 @@ class Menu():
         
         #update screen
         self.screen.fill(colorPalette[theme]["shade6"])
+        self.addLevelButton.update()
+        self.addLevelButton.darken(pygame.mouse.get_pos())
         for i in self.levelButtons: i.update()
         for i in self.levelButtons: i.darken(pygame.mouse.get_pos())
         pygame.display.update()
@@ -202,7 +208,41 @@ class Menu():
                     de.path = i.path
                     de.theme = theme
                     de.main()
+                if i.recieveClick(pos) == "delete":
+                    print(dp.confirmDelete())
 
+    class AddLevelButton():
+        
+        def __init__(self, parent, screen):
+            
+            self.parent = parent
+            self.screen = screen
+            
+            self.isDark = False
+        
+        def update(self):
+            leftmargin = 0.05
+            rightmargin = 0.95
+            spacing = 0.28
+            offset = 0.25
+            scrollm = 0.1
+            y = (spacing - offset) - self.parent.scroll * scrollm
+            gap = 0.085
+            
+            #level box
+            pygame.draw.rect(self.screen, colorPalette[theme]["shade4" if self.isDark else "shade3"], pm.drawAbsolute(leftmargin, y, rightmargin, y + 0.25, self.parent.scX, self.parent.scY), 0, 5)
+            pygame.draw.rect(self.screen, colorPalette[theme]["shade2" if self.isDark else "shade1"], pm.drawAbsolute(leftmargin, y, rightmargin, y + 0.25, self.parent.scX, self.parent.scY), 2, 5)
+            self.pos = pm.drawAbsolute(leftmargin, y, rightmargin, y + 0.25, self.parent.scX, self.parent.scY)
+            
+            pygame.draw.rect(self.screen, colorPalette[theme]["shade2" if self.isDark else "shade1"], pm.drawAbsolute(0.49, y + 0.075, 0.51, y + 0.175, self.parent.scX, self.parent.scY), 0, 5)
+            pygame.draw.rect(self.screen, colorPalette[theme]["shade2" if self.isDark else "shade1"], pm.drawAbsolute(0.5 - gap, y + 0.12, 0.5 + gap, y + 0.13, self.parent.scX, self.parent.scY), 0, 5)
+        
+        def darken(self, pos):
+            if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
+                self.isDark = True
+                return
+            else: self.isDark = False
+    
     class LevelButton():
         
         def __init__(self, parent, screen, path, id):
@@ -233,7 +273,7 @@ class Menu():
             spacing = 0.28
             offset = 0.25
             scrollm = 0.1
-            y = (self.id * spacing - offset) - self.parent.scroll * scrollm
+            y = ((self.id + 1) * spacing - offset) - self.parent.scroll * scrollm
             
             #level box
             pygame.draw.rect(self.screen, colorPalette[theme]["shade5" if self.isDark else "shade4"], pm.drawAbsolute(leftmargin, y, rightmargin, y + 0.25, self.parent.scX, self.parent.scY), 0, 5)
@@ -361,7 +401,7 @@ class Menu():
 def main():
     
     #init
-    menu = Menu("c:/users/benja/downloads/ddrm3/testsongs")
+    menu = Menu("c:/users/benjaminsullivan/downloads/ddrm3/testsongs")
     clock = pygame.time.Clock()
     running = True
     menu.update()
