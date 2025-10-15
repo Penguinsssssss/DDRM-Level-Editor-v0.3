@@ -8,7 +8,7 @@ import os
 import json
 import penguinsmodule as pm #type: ignore
 import DDRMeditor as de #type: ignore
-import DDRMpopups as dp #type: ignore
+#import DDRMpopups as dp #type: ignore
 
 # --- THEMES ---
 #Default: https://coolors.co/palette/10002b-240046-3c096c-5a189a-7b2cbf-9d4edd-c77dff-e0aaff
@@ -199,6 +199,8 @@ class Menu():
     #check which screen elements have been clicked (if any)
     def recieveClick(self, pos):
         
+        self.addLevelButton.recieveClick(pygame.mouse.get_pos())
+        
         for i in self.levelButtons:
             if i.recieveClick(pos):
                 print(i.name, i.recieveClick(pos))
@@ -209,7 +211,8 @@ class Menu():
                     de.theme = theme
                     de.main()
                 if i.recieveClick(pos) == "delete":
-                    print(dp.confirmDelete())
+                    #print(dp.confirmDelete())
+                    pass
 
     class AddLevelButton():
         
@@ -242,6 +245,16 @@ class Menu():
                 self.isDark = True
                 return
             else: self.isDark = False
+        
+        def recieveClick(self, pos):
+            if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
+                self.screen.fill([0, 0, 0, 180])
+                active = True
+                while active:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit()
+                            exit()
     
     class LevelButton():
         
@@ -401,7 +414,7 @@ class Menu():
 def main():
     
     #init
-    menu = Menu("c:/users/benjaminsullivan/downloads/ddrm3/testsongs")
+    menu = Menu("c:/users/benja/downloads/ddrm3/testsongs")
     clock = pygame.time.Clock()
     running = True
     menu.update()
