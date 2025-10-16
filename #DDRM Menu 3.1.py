@@ -155,7 +155,9 @@ colorPalette = {
         }
 }
 
-class Menu():
+
+
+class Menu:
     
     def __init__(self, levels_path):
         
@@ -186,7 +188,7 @@ class Menu():
         self.scroll = 0
         self.path = levels_path
     
-    def update(self):
+    def update(self, withholdUpdate=False):
         
         #update screen
         self.screen.fill(colorPalette[theme]["shade6"])
@@ -194,7 +196,7 @@ class Menu():
         self.addLevelButton.darken(pygame.mouse.get_pos())
         for i in self.levelButtons: i.update()
         for i in self.levelButtons: i.darken(pygame.mouse.get_pos())
-        pygame.display.update()
+        if not withholdUpdate: pygame.display.update()
     
     #check which screen elements have been clicked (if any)
     def recieveClick(self, pos):
@@ -214,7 +216,80 @@ class Menu():
                     #print(dp.confirmDelete())
                     pass
 
-    class AddLevelButton():
+    class TextBox: #clever text implimentation, copied verbaitum from online
+    
+        def __init__(self, parent, x, y, w, h, placeholder, fontpath="C:/Windows/Fonts/Ebrima.ttf", fontsize=32):
+                self.parent = parent
+                self.y = y
+                self.rect = pygame.Rect(pm.drawAbsolute(x, y, w, h, parent.scX, parent.scY))
+                self.font = pygame.font.Font(fontpath, int(fontsize))
+                self.text = ""
+                self.placeholder = placeholder
+                self.active = False
+                self.caret_visible = True
+                self.caret_timer = 0
+                self.caret_position = 0
+                self.focus_color = colorPalette[theme]["shade1"]
+                self.unfocus_color = colorPalette[theme]["shade3"]
+                self.text_color = colorPalette[theme]["shade2"]
+                self.placeholder_color = colorPalette[theme]["shade4"]
+
+        def handle_event(self, event):
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if self.rect.collidepoint(event.pos):
+                    self.active = True
+                else:
+                    self.active = False
+            if not self.active:
+                return
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_BACKSPACE:
+                    if self.caret_position > 0:
+                        self.text = self.text[:self.caret_position - 1] + self.text[self.caret_position:]
+                        self.caret_position -= 1
+                elif event.key == pygame.K_DELETE:
+                    if self.caret_position < len(self.text):
+                        self.text = self.text[:self.caret_position] + self.text[self.caret_position + 1:]
+                elif event.key == pygame.K_LEFT:
+                    self.caret_position = max(0, self.caret_position - 1)
+                elif event.key == pygame.K_RIGHT:
+                    self.caret_position = min(len(self.text), self.caret_position + 1)
+                elif event.key == pygame.K_HOME:
+                    self.caret_position = 0
+                elif event.key == pygame.K_END:
+                    self.caret_position = len(self.text)
+                elif event.key == pygame.K_TAB:
+                    # handled by popup to move focus
+                    pass
+                elif event.key == pygame.K_RETURN:
+                    # handled by popup
+                    pass
+                else:
+                    if event.unicode.isprintable():
+                        self.text = self.text[:self.caret_position] + event.unicode + self.text[self.caret_position:]
+                        self.caret_position += 1
+
+        def update(self, dt):
+            self.caret_timer += dt
+            if self.caret_timer >= 500:
+                self.caret_visible = not self.caret_visible
+                self.caret_timer = 0
+
+        def draw(self, surface):
+            pygame.draw.rect(surface, self.focus_color if self.active else self.unfocus_color, self.rect, 2, 5)
+            txt = self.font.render(self.text if self.text else self.placeholder, True,
+            self.text_color if self.text else self.placeholder_color)
+            surface.blit(txt, (self.rect.x + 8, self.rect.y + (self.rect.height - txt.get_height()) / 2))
+
+            # Draw caret
+            if self.active and self.caret_visible:
+                caret_x = self.rect.x + 8 + self.font.size(self.text[:self.caret_position])[0]
+                caret_y = self.rect.y + 10
+                pygame.draw.line(surface, self.text_color, (caret_x, caret_y),
+                (caret_x, caret_y + self.font.get_height() - 10), 2)
+
+    class AddLevelButton:
         
         def __init__(self, parent, screen):
             
@@ -248,15 +323,9 @@ class Menu():
         
         def recieveClick(self, pos):
             if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
-                self.screen.fill([0, 0, 0, 180])
-                active = True
-                while active:
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            pygame.quit()
-                            exit()
+                addLevelPoppup = self.parent.AddLevelPoppup(self.parent)
     
-    class LevelButton():
+    class LevelButton:
         
         def __init__(self, parent, screen, path, id):
             
@@ -410,6 +479,104 @@ class Menu():
                 self.isDark = True
                 return
             else: self.isDark = False
+
+    class AddLevelPoppup:
+        
+        def __init__(self, parent):
+            
+            print("lolm")
+            self.data = {
+                "name": "",
+                "songauthor": "",
+                "key": "",
+                "bpm": ""
+            }
+            self.parent = parent
+            self.main()
+        
+        def main(self):
+            
+            active = True
+            
+            self.textboxes = [
+                self.parent.TextBox(self.parent, 0.25, 0.26, 0.75, 0.26 + 0.07, "Level Name"),
+                self.parent.TextBox(self.parent, 0.25, 0.40, 0.75, 0.40 + 0.07, "Song Author"),
+                self.parent.TextBox(self.parent, 0.25, 0.54, 0.75, 0.54 + 0.07, "Key"),
+                self.parent.TextBox(self.parent, 0.25, 0.68, 0.75, 0.68 + 0.07, "BPM")
+            ]
+            
+            focus_index = 0
+            self.textboxes[0].active = True
+            
+            clock = pygame.time.Clock()
+            
+            while active:
+                
+                time_delta = clock.tick(60)/1000.0
+                
+                self.parent.update(withholdUpdate=True)
+                self.update()
+                
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        active = False
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            active = False
+                        elif event.key == pygame.K_RETURN: #clever text implimentation copied verbaitum from online
+                            # save and close if all fields filled
+                            if all(tb.text.strip() for tb in self.textboxes):
+                                self.data["name"] = self.textboxes[0].text.strip()
+                                self.data["songauthor"] = self.textboxes[1].text.strip()
+                                self.data["key"] = self.textboxes[2].text.strip()
+                                self.data["bpm"] = self.textboxes[3].text.strip()
+                                print("Popup data:", self.data)
+                                active = False
+                        elif event.key == pygame.K_TAB:
+                            # Cycle focus
+                            self.textboxes[focus_index].active = False
+                            if pygame.key.get_mods() & pygame.KMOD_SHIFT:
+                                focus_index = (focus_index - 1) % len(self.textboxes)
+                            else:
+                                focus_index = (focus_index + 1) % len(self.textboxes)
+                            self.textboxes[focus_index].active = True
+
+                    for tb in self.textboxes:
+                        tb.handle_event(event)
+
+                for tb in self.textboxes:
+                    tb.update(time_delta)
+                
+                pygame.display.update()
+        
+        def update(self):
+            
+            bx = 0.15
+            by = 0.15
+            bw = 0.85
+            bh = 0.85
+            
+            dim = pygame.Surface(self.parent.screen.get_size(), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 180))  # 0–255 alpha, higher = darker
+            self.parent.screen.blit(dim, (0, 0))
+            
+            pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade4"], pm.drawAbsolute(bx, by, bw, bh, self.parent.scX, self.parent.scY), 0, 5)
+            pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade3"], pm.drawAbsolute(bx, by, bw, bh, self.parent.scX, self.parent.scY), 2, 5)
+            
+            font = pygame.font.Font("C:/Windows/Fonts/Ebrima.ttf", 28)
+            labels = ["Level Name", "Song Author", "Key", "BPM"]
+            
+            for i, label in enumerate(labels): #clever text implimentation, copied verbaitum from online
+                txt = font.render(label, True, colorPalette[theme]["shade1"])
+                rect = txt.get_rect()
+                rect.topleft = pm.drawAbsolute(0.18, self.textboxes[i].y - 0.06, 0, 0, self.parent.scX, self.parent.scY)[0:2]
+                self.parent.screen.blit(txt, rect)
+
+            # Textboxes
+            for tb in self.textboxes:
+                tb.draw(self.parent.screen)
+            
+            pygame.display.update()
 
 def main():
     
