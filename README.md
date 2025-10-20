@@ -1,6 +1,9 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+## Mon Oct. 20
+- Notes are now controlled by the scroll wheel in the editor
+
 ## Wed Oct. 15
 - Create Level pop-up now has textboxes to enter information, saves data to a new file
 
