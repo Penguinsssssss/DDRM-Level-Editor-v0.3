@@ -119,7 +119,7 @@ colorPalette = {
         }
 }
 
-class Editor():
+class Editor:
     
     def __init__(self, levelPath):
         
@@ -133,11 +133,14 @@ class Editor():
             loaded_data = json.load(f)
         
         self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.notes = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["notes"]
+        self.scroll = 0
+        
+        self.utilBar = self.UtilBar(self)
     
     def update(self):
         self.screen.fill(colorPalette[theme]["shade6"])
-        self.drawUtilBar()
         self.drawNotes()
+        self.utilBar.update()
         pygame.display.update()
     
     def drawNotes(self):
@@ -147,20 +150,83 @@ class Editor():
             height = 0.25
             spacing = 0.08
             thickness = 0.005
+            noteSpacing = 8 #smaller is larger gaps between notes
             
-            for j in range(i["lanes"]):
+            for j in range(i["lanes"]): #draw lanes
                 pygame.draw.rect(self.screen, colorPalette[theme]["shade4"], pm.drawAbsolute(0, height + (j * spacing), 1, height + (j * spacing) + thickness, self.scX, self.scY), 0)
             
-            for j in i["chart"]:
-                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], [j[0] * (self.scX / 10), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 0)
-                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"] + "out"], [j[0] * (self.scX / 10), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 5)
+            for j in i["chart"]: #draw notes
+                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], [(j[0] + self.scroll / 5) * (self.scX / noteSpacing), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 0)
+                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"] + "out"], [(j[0] + self.scroll / 5) * (self.scX / noteSpacing), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 5)
     
-    def drawUtilBar(self):
+    class UtilBar:
         
-        #consts
-        thickness = 0.05
+        def __init__(self, parent):
+            
+            self.parent = parent
+            
+            self.thickness = 0.05
+            buttonLen = 0.07
+            
+            self.buttons = []
+            self.buttons.append(self.UtilButton(self, "File", ["load", "save"], [0, 0, buttonLen, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "Edit", ["undo", "redo"], [buttonLen, 0, buttonLen * 2, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "View", ["playback", "open file location"], [buttonLen * 2, 0, buttonLen * 3, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "Tools", ["zoom", "meter"], [buttonLen * 3, 0, buttonLen * 4, self.thickness]))
         
-        pygame.draw.rect(self.screen, colorPalette[theme]["shade8"], pm.drawAbsolute(0, 0, 1, thickness, self.scX, self.scY), 0)
+        def update(self):
+            
+            pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade8"], pm.drawAbsolute(0, 0, 1, self.thickness, self.parent.scX, self.parent.scY), 0)
+            
+            #buttons
+            for i in self.buttons:
+                i.update()
+                i.darken(pygame.mouse.get_pos())
+        
+        class UtilButton:
+            
+            def __init__(self, parent, title, options, dims):
+                self.parent = parent
+                self.title = title
+                self.options = options
+                self.dims = dims
+                
+                self.isDark = False
+            
+            def update(self):
+                pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade6" if self.isDark else "shade5"], pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY), 0)
+                pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade7" if self.isDark else "shade6"], pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY), 2)
+                self.pos = pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY)
+                pm.text(self.parent.parent.screen,
+                    self.title,
+                    pm.drawAbsolute(((self.dims[2] - self.dims[0]) / 2) + self.dims[0], self.parent.thickness / 2, 0, 0, self.parent.parent.scX, self.parent.parent.scY)[0:2],
+                    colorPalette[theme]["shade3" if self.isDark else "shade2"],
+                    20,
+                    center="center",
+                    font="C:/Windows/Fonts/Ebrima.ttf"
+                    )
+            
+            def darken(self, pos):
+                
+                if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]: self.isDark = True
+                else: self.isDark = False
+            
+            def recieveClick(self, pos):
+                
+                if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
+                    
+                    active = True
+                    clock = pygame.time.Clock()
+                    
+                    while active:
+                        
+                        time_delta = clock.tick(60)/1000.0
+                        
+                        self.update()
+                        
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                active = False
 
 def main():
     
@@ -178,8 +244,17 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            
+            if event.type == pygame.MOUSEWHEEL:
+                
+                print(editor.scroll)
+                
+                editor.scroll -= event.y
+                if editor.scroll < -9999: editor.scroll = -9999
+                if editor.scroll > 9999: editor.scroll = 9999
         
         editor.update()
 
 if __name__ == "__main__":
-    print(f"\n\nPlease run this file using #DDRM Menu.py!\n\n")
+    path = r"c:\Users\BenjaminSullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
+    main()
