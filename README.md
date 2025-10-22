@@ -1,6 +1,10 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+## Wed oct. 22
+- Template in place for "UtilBar"
+  - Bar that allows users to access tabs like "file" or "view"
+
 ## Mon Oct. 20
 - Notes are now controlled by the scroll wheel in the editor
 
