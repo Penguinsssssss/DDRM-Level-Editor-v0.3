@@ -1,7 +1,13 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
-## Wed oct. 22
+## Wed Oct. 29
+- Each note is now an object of the "note" class
+
+## Mon Oct. 27
+- Util bar now has clickable options (file, edit, view, tools)
+
+## Wed Oct. 22
 - Template in place for "UtilBar"
   - Bar that allows users to access tabs like "file" or "view"
 
