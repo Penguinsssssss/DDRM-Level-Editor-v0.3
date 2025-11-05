@@ -6,6 +6,7 @@ import pygame
 import penguinsmodule as pm #type: ignore
 import os
 import json
+import math
 
 theme = "seaglass"
 path = None
@@ -123,42 +124,98 @@ class Editor:
     
     def __init__(self, levelPath):
         
+        #setup screen
         self.scX = root.winfo_screenwidth() * 0.75
         self.scY = root.winfo_screenheight() * 0.75
         self.screen = pygame.display.set_mode((self.scX, self.scY), pygame.SRCALPHA)
         pygame.display.set_caption('DoDoReMi Level Editor V0.3')
         
+        #get filepath
         self.path = levelPath
         with open(levelPath, "r") as f:
             loaded_data = json.load(f)
         
-        self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.notes = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["notes"]
+        self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.chart = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["chart"]
         self.scroll = 0
         
+        #create utilbar and notes
         self.utilBar = self.UtilBar(self)
+        
+        self.notes = []
+        for i in self.chart[0]["notes"]:
+            self.notes.append(self.Note(self, i, self.chart[0]["part"]))
     
     def update(self):
+        
+        #fill screen
         self.screen.fill(colorPalette[theme]["shade6"])
+        
+        #draw screen elements
         self.drawNotes()
         self.utilBar.update()
+        
+        #show updates to the user
         pygame.display.update()
     
     def drawNotes(self):
-        for i in self.notes:
+        
+        #for i in each individual part
+        for i in self.chart:
             
             #consts
             height = 0.25
             spacing = 0.08
             thickness = 0.005
-            noteSpacing = 8 #smaller is larger gaps between notes
             
-            for j in range(i["lanes"]): #draw lanes
+            #draw lanes in backdrop
+            for j in range(i["lanes"]):
                 pygame.draw.rect(self.screen, colorPalette[theme]["shade4"], pm.drawAbsolute(0, height + (j * spacing), 1, height + (j * spacing) + thickness, self.scX, self.scY), 0)
             
-            for j in i["chart"]: #draw notes
-                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], [(j[0] + self.scroll / 5) * (self.scX / noteSpacing), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 0)
-                pygame.draw.circle(self.screen, colorPalette["notes"][i["part"] + "out"], [(j[0] + self.scroll / 5) * (self.scX / noteSpacing), (height * self.scY) + ((j[1] - 1) * (spacing * self.scY)) + ((thickness * self.scY) / 2)], 20, 5)
+            #allow each note object to draw itself
+            for j in self.notes: j.update()
     
+    def recieveClick(self, pos):
+        
+        #activated upon any form of mouse input from the user
+        #sends signal to each screen element
+        
+        self.utilBar.recieveClick(pos)
+        for i in self.notes: i.recieveClick(pos)
+    
+    class Note():
+        
+        def __init__(self, parent, npos, part):
+            self.parent = parent
+            self.npos = npos
+            self.part = part
+        
+        def update(self):
+            
+            height = 0.25
+            spacing = 0.08
+            thickness = 0.005
+            noteSpacing = 8 #smaller is larger gaps between notes
+            
+            #update position based on zoom and scroll
+            self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / noteSpacing), (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
+            self.radius = 20
+            
+            #draw fill
+            pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part], self.pos, self.radius, 0)
+            
+            #draw outline
+            pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part + "out"], self.pos, self.radius, 5)
+
+            
+        def recieveClick(self, pos):
+            
+            #get distance from centre of note to mouse
+            distance = math.sqrt((pos[0] - self.pos[0]) ** 2 + (pos[1] - self.pos[1]) ** 2)
+            
+            #activate if within note size
+            if distance < self.radius:
+                print(self.npos)
+        
     class UtilBar:
         
         def __init__(self, parent):
@@ -168,6 +225,7 @@ class Editor:
             self.thickness = 0.05
             buttonLen = 0.07
             
+            #dummy buttons
             self.buttons = []
             self.buttons.append(self.UtilButton(self, "File", ["load", "save"], [0, 0, buttonLen, self.thickness]))
             self.buttons.append(self.UtilButton(self, "Edit", ["undo", "redo"], [buttonLen, 0, buttonLen * 2, self.thickness]))
@@ -176,12 +234,21 @@ class Editor:
         
         def update(self):
             
+            #draw top bar
             pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade8"], pm.drawAbsolute(0, 0, 1, self.thickness, self.parent.scX, self.parent.scY), 0)
             
-            #buttons
+            #allow buttons to update themselves
+            
             for i in self.buttons:
                 i.update()
+                
+                #"highlight" if mouse is ontop
                 i.darken(pygame.mouse.get_pos())
+        
+        def recieveClick(self, pos):
+            
+            #allow each button to check if they have been clicked
+            for i in self.buttons: i.recieveClick(pos)
         
         class UtilButton:
             
@@ -191,12 +258,21 @@ class Editor:
                 self.options = options
                 self.dims = dims
                 
+                #"highlight"
                 self.isDark = False
             
             def update(self):
+                
+                #draw fill
                 pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade6" if self.isDark else "shade5"], pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY), 0)
+                
+                #draw outline
                 pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade7" if self.isDark else "shade6"], pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY), 2)
+                
+                #update own position based on zoom and scroll
                 self.pos = pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY)
+                
+                #draw label
                 pm.text(self.parent.parent.screen,
                     self.title,
                     pm.drawAbsolute(((self.dims[2] - self.dims[0]) / 2) + self.dims[0], self.parent.thickness / 2, 0, 0, self.parent.parent.scX, self.parent.parent.scY)[0:2],
@@ -208,11 +284,13 @@ class Editor:
             
             def darken(self, pos):
                 
+                #highlight if mouse is ontop
                 if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]: self.isDark = True
                 else: self.isDark = False
             
             def recieveClick(self, pos):
                 
+                #activates upon mouse input, if clicked start a new loop in which its own menu is shown
                 if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
                     
                     active = True
@@ -232,6 +310,7 @@ def main():
     
     pygame.init()
     
+    #create editor object
     editor = Editor(path)
     
     clock = pygame.time.Clock()
@@ -239,12 +318,14 @@ def main():
     editor.update()
     while running:
         
+        #game runs at 60fps
         time_delta = clock.tick(60)/1000.0
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             
+            #updates scroll for editor
             if event.type == pygame.MOUSEWHEEL:
                 
                 print(editor.scroll)
@@ -252,9 +333,13 @@ def main():
                 editor.scroll -= event.y
                 if editor.scroll < -9999: editor.scroll = -9999
                 if editor.scroll > 9999: editor.scroll = 9999
+            
+            if event.type == pygame.MOUSEBUTTONDOWN: #activates for any moues input, fix later
+                editor.recieveClick(pygame.mouse.get_pos())
         
         editor.update()
 
+#code is meant to be run as a package in the menu script
 if __name__ == "__main__":
     path = r"c:\Users\BenjaminSullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
     main()
