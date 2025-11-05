@@ -1,6 +1,10 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+## Wed Nov. 5
+- I have been attempting to make the note class be able to be clicked and dragged around, but things have been breaking
+- I will revert to a previous version of the code and try again
+
 ## Wed Oct. 29
 - Each note is now an object of the "note" class
 
