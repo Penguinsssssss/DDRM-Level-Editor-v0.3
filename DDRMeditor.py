@@ -7,6 +7,7 @@ import penguinsmodule as pm #type: ignore
 import os
 import json
 import math
+import time
 
 theme = "seaglass"
 path = None
@@ -151,13 +152,13 @@ class Editor:
         self.screen.fill(colorPalette[theme]["shade6"])
         
         #draw screen elements
-        self.drawNotes()
+        self.drawChart()
         self.utilBar.update()
         
         #show updates to the user
         pygame.display.update()
     
-    def drawNotes(self):
+    def drawChart(self):
         
         #for i in each individual part
         for i in self.chart:
@@ -188,16 +189,19 @@ class Editor:
             self.parent = parent
             self.npos = npos
             self.part = part
+            
+            self.held = False
         
         def update(self):
             
             height = 0.25
-            spacing = 0.08
+            spacing = 0.08 #per beat
             thickness = 0.005
             noteSpacing = 8 #smaller is larger gaps between notes
             
             #update position based on zoom and scroll
-            self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / noteSpacing), (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
+            if self.held == False: self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / noteSpacing), (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
+            else: self.pos = pygame.mouse.get_pos()
             self.radius = 20
             
             #draw fill
@@ -215,6 +219,7 @@ class Editor:
             #activate if within note size
             if distance < self.radius:
                 print(self.npos)
+                self.held = True
         
     class UtilBar:
         
@@ -341,5 +346,5 @@ def main():
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\BenjaminSullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
+    path = r"c:\Users\BenjaminSullivan\Downloads\ddrm3\test_song.json"
     main()
