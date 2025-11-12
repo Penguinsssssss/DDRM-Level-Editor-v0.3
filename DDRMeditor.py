@@ -9,7 +9,7 @@ import json
 import math
 import time
 
-theme = "seaglass"
+theme = "default"
 path = None
 colorPalette = {
     "default": {
@@ -167,10 +167,23 @@ class Editor:
             height = 0.25
             spacing = 0.08
             thickness = 0.005
+            self.noteSpacing = 10
             
             #draw lanes in backdrop
+            
+            self.nodes = []
+            
             for j in range(i["lanes"]):
-                pygame.draw.rect(self.screen, colorPalette[theme]["shade4"], pm.drawAbsolute(0, height + (j * spacing), 1, height + (j * spacing) + thickness, self.scX, self.scY), 0)
+                pygame.draw.rect(self.screen, colorPalette["notes"][i["part"] + "out"], pm.drawAbsolute(0, height + (j * spacing), 1, height + (j * spacing) + thickness, self.scX, self.scY), 0)
+                
+                for k in range(abs(self.scroll) + 10):
+                    
+                    beat = (k + self.scroll / 5) * (self.scX / self.noteSpacing)
+                    h = pm.drawAbsolute(0, (height + (j * spacing)) + (thickness / 2), 0, 0, self.scX, self.scY)[1]
+                    pos = [beat, h]
+                    
+                    pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], pos, 4, 0)
+                    self.nodes.append(pos)
             
             #allow each note object to draw itself
             for j in self.notes: j.update()
@@ -197,20 +210,19 @@ class Editor:
             height = 0.25
             spacing = 0.08 #per beat
             thickness = 0.005
-            noteSpacing = 8 #smaller is larger gaps between notes
+            self.radius = 20
             
             #update position based on zoom and scroll
-            if self.held == False: self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / noteSpacing), (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
+            if self.held == False: self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / self.parent.noteSpacing), (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
             else: self.pos = pygame.mouse.get_pos()
-            self.radius = 20
+            #self.findClosest(pygame.mouse.get_pos(), self.parent.nodes)
             
             #draw fill
             pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part], self.pos, self.radius, 0)
             
             #draw outline
             pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part + "out"], self.pos, self.radius, 5)
-
-            
+        
         def recieveClick(self, pos):
             
             #get distance from centre of note to mouse
@@ -220,6 +232,20 @@ class Editor:
             if distance < self.radius:
                 print(self.npos)
                 self.held = True
+        
+        def findClosest(self, pos, nodes):
+            closest_point = None
+            min_distance = float('inf')  # Initialize with a very large distance
+
+            for point in nodes:
+                # Calculate Euclidean distance
+                distance = math.sqrt((self.pos[0] - point[0])**2 + (self.pos[1] - point[1])**2)
+
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_point = point
+
+            return closest_point
         
     class UtilBar:
         
@@ -337,7 +363,8 @@ def main():
                 
                 editor.scroll -= event.y
                 if editor.scroll < -9999: editor.scroll = -9999
-                if editor.scroll > 9999: editor.scroll = 9999
+                if editor.scroll > 0: editor.scroll = 0
+                print(editor.scroll)
             
             if event.type == pygame.MOUSEBUTTONDOWN: #activates for any moues input, fix later
                 editor.recieveClick(pygame.mouse.get_pos())
@@ -346,5 +373,5 @@ def main():
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\BenjaminSullivan\Downloads\ddrm3\test_song.json"
+    path = r"c:\Users\Benja\Downloads\ddrm3\testsongs\library_ruins.json"
     main()
