@@ -1,6 +1,10 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+## Thurs Nov. 13
+- Users can now add and remove notes
+- Changes are not yet saved to the json
+
 ## Wed Nov. 5
 - I have been attempting to make the note class be able to be clicked and dragged around, but things have been breaking
 - I will revert to a previous version of the code and try again
