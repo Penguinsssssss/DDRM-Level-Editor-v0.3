@@ -145,6 +145,8 @@ class Editor:
         self.notes = []
         for i in self.chart[0]["notes"]:
             self.notes.append(self.Note(self, i, self.chart[0]["part"]))
+        
+        print(self.notes)
     
     def update(self):
         
@@ -164,9 +166,9 @@ class Editor:
         for i in self.chart:
             
             #consts
-            height = 0.25
-            spacing = 0.08
-            thickness = 0.005
+            self.height = 0.25
+            self.spacing = 0.08
+            self.thickness = 0.005
             self.noteSpacing = 10
             
             #draw lanes in backdrop
@@ -174,27 +176,49 @@ class Editor:
             self.nodes = []
             
             for j in range(i["lanes"]):
-                pygame.draw.rect(self.screen, colorPalette["notes"][i["part"] + "out"], pm.drawAbsolute(0, height + (j * spacing), 1, height + (j * spacing) + thickness, self.scX, self.scY), 0)
+                pygame.draw.rect(self.screen, colorPalette["notes"][i["part"] + "out"], pm.drawAbsolute(0, self.height + (j * self.spacing), 1, self.height + (j * self.spacing) + self.thickness, self.scX, self.scY), 0)
                 
                 for k in range(abs(self.scroll) + 10):
                     
                     beat = (k + self.scroll / 5) * (self.scX / self.noteSpacing)
-                    h = pm.drawAbsolute(0, (height + (j * spacing)) + (thickness / 2), 0, 0, self.scX, self.scY)[1]
+                    h = pm.drawAbsolute(0, (self.height + (j * self.spacing)) + (self.thickness / 2), 0, 0, self.scX, self.scY)[1]
                     pos = [beat, h]
                     
                     pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], pos, 4, 0)
-                    self.nodes.append(pos)
+                    self.nodes.append([k, j])
             
             #allow each note object to draw itself
             for j in self.notes: j.update()
     
-    def recieveClick(self, pos):
+    def recieveClick(self, pos, button):
         
         #activated upon any form of mouse input from the user
         #sends signal to each screen element
         
-        self.utilBar.recieveClick(pos)
-        for i in self.notes: i.recieveClick(pos)
+        if button == "LEFT":
+            self.utilBar.recieveClick(pos)
+            for i in self.notes:
+                if i.recieveClick(pos):
+                    self.notes.remove(i)
+        elif button == "RIGHT":
+            closest = self.findClosest(pos, self.nodes)
+            self.notes.append(self.Note(self, [closest[0], closest[1] + 1, 0], "melody"))
+    
+    def findClosest(self, pos, nodes): #taken from online source
+            closest_point = None
+            min_distance = float('inf')  # Initialize with a very large distance
+
+            for point in nodes:
+                # Calculate Euclidean distance
+                nodepos = [(point[0] + self.scroll / 5) * (self.scX / self.noteSpacing),
+                           pm.drawAbsolute(0, (self.height + (point[1] * self.spacing)) + (self.thickness / 2), 0, 0, self.scX, self.scY)[1]]
+                distance = math.sqrt((pos[0] - nodepos[0])**2 + (pos[1] - nodepos[1])**2)
+
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_point = point
+
+            return closest_point
     
     class Note():
         
@@ -204,6 +228,8 @@ class Editor:
             self.part = part
             
             self.held = False
+            
+            self.isDark = False
         
         def update(self):
             
@@ -213,9 +239,10 @@ class Editor:
             self.radius = 20
             
             #update position based on zoom and scroll
-            if self.held == False: self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / self.parent.noteSpacing), (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
+            if self.held == False:
+                self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / self.parent.noteSpacing),
+                            (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
             else: self.pos = pygame.mouse.get_pos()
-            #self.findClosest(pygame.mouse.get_pos(), self.parent.nodes)
             
             #draw fill
             pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part], self.pos, self.radius, 0)
@@ -223,29 +250,17 @@ class Editor:
             #draw outline
             pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part + "out"], self.pos, self.radius, 5)
         
-        def recieveClick(self, pos):
+        def recieveClick(self, pos, button):
             
-            #get distance from centre of note to mouse
             distance = math.sqrt((pos[0] - self.pos[0]) ** 2 + (pos[1] - self.pos[1]) ** 2)
             
             #activate if within note size
+            
             if distance < self.radius:
-                print(self.npos)
-                self.held = True
-        
-        def findClosest(self, pos, nodes):
-            closest_point = None
-            min_distance = float('inf')  # Initialize with a very large distance
-
-            for point in nodes:
-                # Calculate Euclidean distance
-                distance = math.sqrt((self.pos[0] - point[0])**2 + (self.pos[1] - point[1])**2)
-
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_point = point
-
-            return closest_point
+                if button == "LEFT": #delete
+                    return True
+                else: self.isDark = True #darken
+            else: self.isDark = False #undarken
         
     class UtilBar:
         
@@ -359,19 +374,26 @@ def main():
             #updates scroll for editor
             if event.type == pygame.MOUSEWHEEL:
                 
-                print(editor.scroll)
+                mods = pygame.key.get_mods()
+                if mods & pygame.KMOD_CTRL:
+                    
+                    editor.noteSpacing -= event.y
+                    print(editor.noteSpacing)
                 
-                editor.scroll -= event.y
-                if editor.scroll < -9999: editor.scroll = -9999
-                if editor.scroll > 0: editor.scroll = 0
-                print(editor.scroll)
-            
+                else:
+                    
+                    editor.scroll -= event.y
+                    if editor.scroll < -9999: editor.scroll = -9999
+                    if editor.scroll > 0: editor.scroll = 0
+                    print(editor.scroll)
+                
             if event.type == pygame.MOUSEBUTTONDOWN: #activates for any moues input, fix later
-                editor.recieveClick(pygame.mouse.get_pos())
+                if event.button == 1: editor.recieveClick(pygame.mouse.get_pos(), "LEFT")
+                elif event.button == 3: editor.recieveClick(pygame.mouse.get_pos(), "RIGHT")
         
         editor.update()
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\Benja\Downloads\ddrm3\testsongs\library_ruins.json"
+    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
     main()
