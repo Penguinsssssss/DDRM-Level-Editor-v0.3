@@ -2,12 +2,14 @@
 
 import tkinter
 root = tkinter.Tk()
+from tkinter import filedialog
 import pygame
 import penguinsmodule as pm #type: ignore
 import os
 import json
 import math
 import time
+import DDRMMenu31 as dm #type: ignore
 
 theme = "default"
 path = None
@@ -139,14 +141,13 @@ class Editor:
         self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.chart = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["chart"]
         self.scroll = 0
         
-        #create utilbar and notes
+        #create utilbar
         self.utilBar = self.UtilBar(self)
         
+        #create notes
         self.notes = []
         for i in self.chart[0]["notes"]:
             self.notes.append(self.Note(self, i, self.chart[0]["part"]))
-        
-        print(self.notes)
     
     def update(self):
         
@@ -196,9 +197,9 @@ class Editor:
         #sends signal to each screen element
         
         if button == "LEFT":
-            self.utilBar.recieveClick(pos)
+            self.utilBar.recieveClick(pos, button)
             for i in self.notes:
-                if i.recieveClick(pos):
+                if i.recieveClick(pos, button):
                     self.notes.remove(i)
         elif button == "RIGHT":
             closest = self.findClosest(pos, self.nodes)
@@ -273,10 +274,11 @@ class Editor:
             
             #dummy buttons
             self.buttons = []
-            self.buttons.append(self.UtilButton(self, "File", ["load", "save"], [0, 0, buttonLen, self.thickness]))
-            self.buttons.append(self.UtilButton(self, "Edit", ["undo", "redo"], [buttonLen, 0, buttonLen * 2, self.thickness]))
-            self.buttons.append(self.UtilButton(self, "View", ["playback", "open file location"], [buttonLen * 2, 0, buttonLen * 3, self.thickness]))
-            self.buttons.append(self.UtilButton(self, "Tools", ["zoom", "meter"], [buttonLen * 3, 0, buttonLen * 4, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "File", ["New", "Open", "Save", "Save As", "Export"], [0, 0, buttonLen, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "Edit", ["Edit Song Info", "Change Audio"], [buttonLen, 0, buttonLen * 2, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "View", ["Playback", "Themes"], [buttonLen * 2, 0, buttonLen * 3, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "Tools", ["Undo", "Redo", "Zoom", "Edit Meter"], [buttonLen * 3, 0, buttonLen * 4, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "Song", ["Add Part", "Add Instrument"], [buttonLen * 4, 0, buttonLen * 5, self.thickness]))
         
         def update(self):
             
@@ -291,10 +293,10 @@ class Editor:
                 #"highlight" if mouse is ontop
                 i.darken(pygame.mouse.get_pos())
         
-        def recieveClick(self, pos):
+        def recieveClick(self, pos, button):
             
             #allow each button to check if they have been clicked
-            for i in self.buttons: i.recieveClick(pos)
+            for i in self.buttons: i.recieveClick(pos, button)
         
         class UtilButton:
             
@@ -306,9 +308,52 @@ class Editor:
                 
                 #"highlight"
                 self.isDark = False
+                self.optionhighlighted = None
+                self.active = False
             
             def update(self):
                 
+                if self.active:
+                    
+                    pos = pygame.mouse.get_pos()
+                    
+                    self.buttonDepth = 0.05
+                    
+                    self.pos = pm.drawAbsolute(self.dims[0], self.dims[3] - self.dims[1], self.dims[2], self.dims[3] + (self.buttonDepth * len(self.options)), self.parent.parent.scX, self.parent.parent.scY)
+                    
+                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade4"], self.pos, 0)
+                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade5"], self.pos, 2)
+                    
+                    #checks to see if each option is highlighted
+                    if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]: #dim below selected option
+                        yndex = pos[1] / self.parent.parent.scY
+                        counter = -1
+                        while yndex > self.buttonDepth:
+                            yndex -= self.buttonDepth
+                            counter += 1
+                        posy = self.pos[1] + ((counter) * self.buttonDepth * self.parent.parent.scY)
+                        pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade7"], [self.pos[0], posy, self.pos[2], self.buttonDepth * self.parent.parent.scY])
+                        self.optionhighlighted = counter
+                    
+                    else:
+                        self.optionhighlighted = None
+                    
+                    #draws each option in a dropdown
+                    index = 1
+                    for i in self.options:
+                        
+                        textsize = 16 - round(len(i) / 2 if len(i) > 11 else 3)
+                        
+                        pm.text(self.parent.parent.screen,
+                            i,
+                            pm.drawAbsolute(((self.dims[2] - self.dims[0]) / 2) + self.dims[0], self.parent.thickness / 2 + (self.buttonDepth * index), 0, 0, self.parent.parent.scX, self.parent.parent.scY)[0:2],
+                            colorPalette[theme]["shade2"],
+                            textsize,
+                            center="center",
+                            font="C:/Windows/Fonts/Ebrima.ttf"
+                        )
+                        index += 1
+                    
                 #draw fill
                 pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade6" if self.isDark else "shade5"], pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY), 0)
                 
@@ -322,35 +367,55 @@ class Editor:
                 pm.text(self.parent.parent.screen,
                     self.title,
                     pm.drawAbsolute(((self.dims[2] - self.dims[0]) / 2) + self.dims[0], self.parent.thickness / 2, 0, 0, self.parent.parent.scX, self.parent.parent.scY)[0:2],
-                    colorPalette[theme]["shade3" if self.isDark else "shade2"],
+                    colorPalette[theme]["shade2"],
                     20,
                     center="center",
                     font="C:/Windows/Fonts/Ebrima.ttf"
                     )
-            
+        
             def darken(self, pos):
                 
                 #highlight if mouse is ontop
                 if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]: self.isDark = True
                 else: self.isDark = False
             
-            def recieveClick(self, pos):
+            def recieveClick(self, pos, button):
+                
+                if self.active:
+                    self.dropdownrecieveClick(pos, button)
                 
                 #activates upon mouse input, if clicked start a new loop in which its own menu is shown
-                if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
+                elif self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
                     
-                    active = True
-                    clock = pygame.time.Clock()
+                    self.active = not self.active
+            
+            def dropdownrecieveClick(self, pos, button):
+                #checks if option was clicked
+                if button == "LEFT" and self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
+                    #runs respective code
+                    self.functions(self.options[self.optionhighlighted])
+                else:
+                    #turns off dropdown loop
+                    self.active = False
+                    #passes click to Menu()
+                    self.parent.parent.recieveClick(pos, button) #BROKEN FIX LATER
+            
+            def functions(self, function):
+                if function == "New":
+                    print("new")
+                elif function == "Open" or function == "Change Audio":
+                    root.withdraw()
+                    file_path = filedialog.askopenfilename(
+                        title="Select a level",
+                        filetypes=[("Json files", "*.json"), ("All files", "*.*")]
+                    )
                     
-                    while active:
-                        
-                        time_delta = clock.tick(60)/1000.0
-                        
-                        self.update()
-                        
-                        for event in pygame.event.get():
-                            if event.type == pygame.QUIT:
-                                active = False
+                    print(file_path)
+                    root.destroy()
+                elif function == "Save": pass
+                elif function == "Save As": pass
+                elif function == "Export": pass
+                else: print("lolm3")
 
 def main():
     
@@ -397,3 +462,16 @@ def main():
 if __name__ == "__main__":
     path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
     main()
+
+"""
+TO-DO
+- Zoom
+- Meter
+- Saves to file
+
+
+list
+- Zoom
+- Meter
+- Why does my menu close when I select an option
+"""
