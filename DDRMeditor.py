@@ -9,7 +9,6 @@ import os
 import json
 import math
 import time
-import DDRMMenu31 as dm #type: ignore
 
 theme = "default"
 path = None
@@ -139,7 +138,9 @@ class Editor:
             loaded_data = json.load(f)
         
         self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.chart = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["chart"]
+        
         self.scroll = 0
+        self.noteSpacing = 10
         
         #create utilbar
         self.utilBar = self.UtilBar(self)
@@ -148,6 +149,10 @@ class Editor:
         self.notes = []
         for i in self.chart[0]["notes"]:
             self.notes.append(self.Note(self, i, self.chart[0]["part"]))
+        
+        #consts
+        self.meter_numerator = 7
+        self.meter_denominator = 4
     
     def update(self):
         
@@ -170,22 +175,38 @@ class Editor:
             self.height = 0.25
             self.spacing = 0.08
             self.thickness = 0.005
-            self.noteSpacing = 10
             
             #draw lanes in backdrop
             
             self.nodes = []
             
             for j in range(i["lanes"]):
+                
+                #draw lane
                 pygame.draw.rect(self.screen, colorPalette["notes"][i["part"] + "out"], pm.drawAbsolute(0, self.height + (j * self.spacing), 1, self.height + (j * self.spacing) + self.thickness, self.scX, self.scY), 0)
                 
-                for k in range(abs(self.scroll) + 10):
+                #draw beats in the lane
+                pxsperbeat = self.scX / self.noteSpacing
+                beats = int(self.scX / pxsperbeat) + 10
+                
+                for k in range(beats):
+                    beat = (k + self.scroll / 5) * pxsperbeat
                     
-                    beat = (k + self.scroll / 5) * (self.scX / self.noteSpacing)
-                    h = pm.drawAbsolute(0, (self.height + (j * self.spacing)) + (self.thickness / 2), 0, 0, self.scX, self.scY)[1]
-                    pos = [beat, h]
+                    y = pm.drawAbsolute(
+                        0,
+                        (self.height + (j * self.spacing)) + (self.thickness / 2),
+                        0, 0, self.scX, self.scY
+                    )[1] #only get y val
                     
-                    pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], pos, 4, 0)
+                    #pos in pixels
+                    pos = [beat, y]
+                    
+                    #highlight the first note of every measure
+                    size = 7 if k % self.meter_numerator == 0 else 3
+                    
+                    pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], pos, size, 0)
+                    
+                    #pos in beats
                     self.nodes.append([k, j])
             
             #allow each note object to draw itself
@@ -214,12 +235,15 @@ class Editor:
                 nodepos = [(point[0] + self.scroll / 5) * (self.scX / self.noteSpacing),
                            pm.drawAbsolute(0, (self.height + (point[1] * self.spacing)) + (self.thickness / 2), 0, 0, self.scX, self.scY)[1]]
                 distance = math.sqrt((pos[0] - nodepos[0])**2 + (pos[1] - nodepos[1])**2)
-
+                
                 if distance < min_distance:
                     min_distance = distance
                     closest_point = point
-
+            
             return closest_point
+    
+    def devdebug(self):
+        for i in self.notes: print(i.npos)
     
     class Note():
         
@@ -440,17 +464,19 @@ def main():
             if event.type == pygame.MOUSEWHEEL:
                 
                 mods = pygame.key.get_mods()
-                if mods & pygame.KMOD_CTRL:
-                    
+                
+                #hold alt to zoom
+                if mods & pygame.KMOD_ALT:
                     editor.noteSpacing -= event.y
-                    print(editor.noteSpacing)
+                    if editor.noteSpacing < 1: editor.noteSpacing = 1
+                    if editor.noteSpacing > 9999: editor.noteSpacing = 9999
+                    print(f"zoom: {editor.noteSpacing}")
                 
                 else:
-                    
                     editor.scroll -= event.y
                     if editor.scroll < -9999: editor.scroll = -9999
                     if editor.scroll > 0: editor.scroll = 0
-                    print(editor.scroll)
+                    print(f"scroll: {editor.scroll}")
                 
             if event.type == pygame.MOUSEBUTTONDOWN: #activates for any moues input, fix later
                 if event.button == 1: editor.recieveClick(pygame.mouse.get_pos(), "LEFT")
@@ -460,7 +486,7 @@ def main():
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
+    path = r"c:\Users\Benja\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
     main()
 
 """
@@ -468,10 +494,4 @@ TO-DO
 - Zoom
 - Meter
 - Saves to file
-
-
-list
-- Zoom
-- Meter
-- Why does my menu close when I select an option
 """
