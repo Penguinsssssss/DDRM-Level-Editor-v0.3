@@ -1,6 +1,12 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+## Tues Nov. 18
+- Utilbar now has drowdown windows
+- Options in the dropdown are highlighted
+- Upon clicking a function will run based on the highlighted option
+- Menu closed by clicking anywhere outside the menu
+
 ## Thurs Nov. 13
 - Users can now add and remove notes
 - Changes are not yet saved to the json
