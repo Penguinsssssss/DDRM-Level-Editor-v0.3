@@ -155,8 +155,6 @@ colorPalette = {
         }
 }
 
-
-
 class Menu:
     
     def __init__(self, levels_path):
@@ -216,9 +214,9 @@ class Menu:
                     #print(dp.confirmDelete())
                     pass
 
-    class TextBox: #clever text implimentation, copied verbaitum from online
+    class TextBox: #clever textbox implimentation, copied verbaitum from online
     
-        def __init__(self, parent, x, y, w, h, placeholder, fontpath="C:/Windows/Fonts/Ebrima.ttf", fontsize=32):
+        def __init__(self, parent, x, y, w, h, placeholder, fontpath="C:/Windows/Fonts/Ebrima.ttf", fontsize=24):
                 self.parent = parent
                 self.y = y
                 self.rect = pygame.Rect(pm.drawAbsolute(x, y, w, h, parent.scX, parent.scY))
@@ -285,7 +283,7 @@ class Menu:
             # Draw caret
             if self.active and self.caret_visible:
                 caret_x = self.rect.x + 8 + self.font.size(self.text[:self.caret_position])[0]
-                caret_y = self.rect.y + 10
+                caret_y = self.rect.y + 5
                 pygame.draw.line(surface, self.text_color, (caret_x, caret_y),
                 (caret_x, caret_y + self.font.get_height() - 10), 2)
 
@@ -479,7 +477,7 @@ class Menu:
                 self.isDark = True
                 return
             else: self.isDark = False
-
+    
     class AddLevelPoppup:
         
         def __init__(self, parent):
@@ -523,7 +521,7 @@ class Menu:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_ESCAPE:
                             active = False
-                        elif event.key == pygame.K_RETURN: #clever text implimentation copied verbaitum from online
+                        elif event.key == pygame.K_RETURN: #clever textbox implimentation, copied verbaitum from online
                             # save and close if all fields filled
                             if all(tb.text.strip() for tb in self.textboxes):
                                 self.data["name"] = self.textboxes[0].text.strip()
@@ -531,6 +529,7 @@ class Menu:
                                 self.data["key"] = self.textboxes[2].text.strip()
                                 self.data["bpm"] = self.textboxes[3].text.strip()
                                 print("Popup data:", self.data)
+                                self.saveData(self.data)
                                 active = False
                         elif event.key == pygame.K_TAB:
                             # Cycle focus
@@ -563,13 +562,13 @@ class Menu:
             pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade4"], pm.drawAbsolute(bx, by, bw, bh, self.parent.scX, self.parent.scY), 0, 5)
             pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade3"], pm.drawAbsolute(bx, by, bw, bh, self.parent.scX, self.parent.scY), 2, 5)
             
-            font = pygame.font.Font("C:/Windows/Fonts/Ebrima.ttf", 28)
+            font = pygame.font.Font("C:/Windows/Fonts/Ebrima.ttf", 24)
             labels = ["Level Name", "Song Author", "Key", "BPM"]
             
             for i, label in enumerate(labels): #clever text implimentation, copied verbaitum from online
                 txt = font.render(label, True, colorPalette[theme]["shade1"])
                 rect = txt.get_rect()
-                rect.topleft = pm.drawAbsolute(0.18, self.textboxes[i].y - 0.06, 0, 0, self.parent.scX, self.parent.scY)[0:2]
+                rect.topleft = pm.drawAbsolute(0.18, self.textboxes[i].y - 0.07, 0, 0, self.parent.scX, self.parent.scY)[0:2]
                 self.parent.screen.blit(txt, rect)
 
             # Textboxes
@@ -577,11 +576,49 @@ class Menu:
                 tb.draw(self.parent.screen)
             
             pygame.display.update()
+        
+        def saveData(self, data):
+            
+            path = f"c:/users/benjaminsullivan/downloads/ddrm3/testsongs/ddrm_{data["name"]}.json"
+            
+            fData = {"name": None,
+                    "author": None,
+                    "songauthor": None,
+                    "length": 0,
+                    "bpm": 0,
+                    "key": None,
+                    "keyscale": None,
+                    "signature": "4/4",
+                    "chart": [
+                                {
+                                "part": "melody",
+                                "instruments": [],
+                                "difficulty": 0,
+                                "lanes": 5,
+                                "notes": [
+                                    [1, 1, 1]
+                                    ]
+                                }
+                            ]
+                }
+            
+            fData["name"] = data["name"]
+            fData["songauthor"] = data["songauthor"]
+            fData["bpm"] = data["bpm"]
+            fData["key"] = data["key"]
+            
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(fData, f, indent=2, ensure_ascii=False)
+            
+            pygame.quit()
+            de.path = path
+            de.theme = theme
+            de.main()
 
 def main():
     
     #init
-    menu = Menu("c:/users/benja/downloads/ddrm3/testsongs")
+    menu = Menu("c:/users/benjaminsullivan/downloads/ddrm3/testsongs")
     clock = pygame.time.Clock()
     running = True
     menu.update()
@@ -608,4 +645,5 @@ def main():
         #update screen
         menu.update()
 
-main()
+if __name__ == "__main__":
+    main()
