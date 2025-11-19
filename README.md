@@ -17,6 +17,11 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
 
 # Timeline
 
+## Wed Nov. 19
+- Changed system for storing notes
+  - Old system was stored in beats, example beat 22
+  - Now stores notes in measures, example measure 5 beat 2 of 4
+
 ## Tues Nov. 18 (night)
 - Users can now zoom in and out by holding alt
 - The first beat of every measure is now enlarged (meter is stored internally)
