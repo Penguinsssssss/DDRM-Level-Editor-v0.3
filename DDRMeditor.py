@@ -137,10 +137,14 @@ class Editor:
         with open(levelPath, "r") as f:
             loaded_data = json.load(f)
         
-        self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.chart = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["chart"]
+        self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.signature, self.chart = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["signature"], loaded_data["chart"]
         
         self.scroll = 0
         self.noteSpacing = 10
+        
+        #consts
+        self.meter_numerator = self.signature[0]
+        self.meter_denominator = self.signature[1]
         
         #create utilbar
         self.utilBar = self.UtilBar(self)
@@ -149,10 +153,6 @@ class Editor:
         self.notes = []
         for i in self.chart[0]["notes"]:
             self.notes.append(self.Note(self, i, self.chart[0]["part"]))
-        
-        #consts
-        self.meter_numerator = 7
-        self.meter_denominator = 4
     
     def update(self):
         
@@ -224,7 +224,8 @@ class Editor:
                     self.notes.remove(i)
         elif button == "RIGHT":
             closest = self.findClosest(pos, self.nodes)
-            self.notes.append(self.Note(self, [closest[0], closest[1] + 1, 0], "melody"))
+            measure = [(closest[0] - closest[0] % self.meter_numerator) / self.meter_numerator, closest[0] % self.meter_numerator + 1, self.meter_numerator]
+            self.notes.append(self.Note(self, [measure, closest[1] + 1, 0], "melody"))
     
     def findClosest(self, pos, nodes): #taken from online source
             closest_point = None
@@ -247,9 +248,12 @@ class Editor:
     
     class Note():
         
-        def __init__(self, parent, npos, part):
+        def __init__(self, parent, data, part):
             self.parent = parent
-            self.npos = npos
+            self.npos = data[0]
+            self.measure = (self.npos[0] + (self.npos[1] - 1) / self.npos[2]) * self.parent.meter_numerator
+            self.lane = data[1]
+            self.pitch = data[2]
             self.part = part
             
             self.held = False
@@ -265,8 +269,8 @@ class Editor:
             
             #update position based on zoom and scroll
             if self.held == False:
-                self.pos = [(self.npos[0] + self.parent.scroll / 5) * (self.parent.scX / self.parent.noteSpacing),
-                            (height * self.parent.scY) + ((self.npos[1] - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
+                self.pos = [(self.measure + self.parent.scroll / 5) * (self.parent.scX / self.parent.noteSpacing),
+                            (height * self.parent.scY) + ((self.lane - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
             else: self.pos = pygame.mouse.get_pos()
             
             #draw fill
@@ -307,7 +311,7 @@ class Editor:
         def update(self):
             
             #draw top bar
-            pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade8"], pm.drawAbsolute(0, 0, 1, self.thickness, self.parent.scX, self.parent.scY), 0)
+            pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade7"], pm.drawAbsolute(0, 0, 1, self.thickness, self.parent.scX, self.parent.scY), 0)
             
             #allow buttons to update themselves
             
@@ -470,13 +474,13 @@ def main():
                     editor.noteSpacing -= event.y
                     if editor.noteSpacing < 1: editor.noteSpacing = 1
                     if editor.noteSpacing > 9999: editor.noteSpacing = 9999
-                    print(f"zoom: {editor.noteSpacing}")
+                    #print(f"zoom: {editor.noteSpacing}")
                 
                 else:
-                    editor.scroll -= event.y
+                    editor.scroll += event.y
                     if editor.scroll < -9999: editor.scroll = -9999
                     if editor.scroll > 0: editor.scroll = 0
-                    print(f"scroll: {editor.scroll}")
+                    #print(f"scroll: {editor.scroll}")
                 
             if event.type == pygame.MOUSEBUTTONDOWN: #activates for any moues input, fix later
                 if event.button == 1: editor.recieveClick(pygame.mouse.get_pos(), "LEFT")
@@ -486,7 +490,7 @@ def main():
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\Benja\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
+    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
     main()
 
 """
