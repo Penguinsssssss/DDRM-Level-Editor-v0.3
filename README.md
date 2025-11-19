@@ -1,6 +1,20 @@
 # DDRM-Level-Editor-v0.3
 Benjamin Sullivan junior year semester 1 Programming Studio project
 
+# Task List (No specific order)
+- Save / Save as / Auto Save ?
+- Export as level file
+  - Currently stored in beats/measures, not milliseconds
+- Allow users to edit level info when in menu
+  - Example, BPM, audio file, file name
+- Create new parts
+  - Get list of instuments for each part
+  - Add new instruments to part
+  - Toggle view between parts
+- Playback button
+   - Allow users to start playback from later in the level ?
+- Create demo song(s)
+
 ## Tues Nov. 18 (night)
 - Users can now zoom in and out by holding alt
 - The first beat of every measure is now enlarged (meter is stored internally)
@@ -81,18 +95,4 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
 - Started working on menu system
 - Can display .jsons from a folder
 - Can menu has scroll wheel capabilities
-
-## TODO
-- Menu (first quarter)
-  - Create new files ✓
-  - Import Files
-  - Open the editor of a specific file ✓
-  - Delete files ✓1/2
-- Editor (quarters 2-4)
-  - Create custom file syntax (1-2 weeks)
-  - Create new parts (<1 week)
-  - Chart notes (1-2 weeks)
-  - Copy/Paste and other tools (2-3 weeks)
-  - Playback (2-3 weeks)
-- Output
   - Save to games code (<1 week)
