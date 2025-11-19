@@ -15,6 +15,8 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
    - Allow users to start playback from later in the level ?
 - Create demo song(s)
 
+# Timeline
+
 ## Tues Nov. 18 (night)
 - Users can now zoom in and out by holding alt
 - The first beat of every measure is now enlarged (meter is stored internally)
