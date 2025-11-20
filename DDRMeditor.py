@@ -10,8 +10,9 @@ import json
 import math
 import time
 
-theme = "default"
 path = None
+
+theme = "default"
 colorPalette = {
     "default": {
         "shade1": "#E0AAFF", #lightest
@@ -140,7 +141,7 @@ class Editor:
         self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.signature, self.chart = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["signature"], loaded_data["chart"]
         
         self.scroll = 0
-        self.noteSpacing = 10
+        self.noteSpacing = 15
         
         #consts
         self.meter_numerator = self.signature[0]
@@ -246,6 +247,11 @@ class Editor:
     def devdebug(self):
         for i in self.notes: print(i.npos)
     
+    def writeNotes(self):
+        noteslist = []
+        for i in self.notes: noteslist.append([i.npos, i.lane, i.pitch])
+        return noteslist
+    
     class Note():
         
         def __init__(self, parent, data, part):
@@ -290,7 +296,7 @@ class Editor:
                     return True
                 else: self.isDark = True #darken
             else: self.isDark = False #undarken
-        
+    
     class UtilBar:
         
         def __init__(self, parent):
@@ -429,6 +435,7 @@ class Editor:
                     self.parent.parent.recieveClick(pos, button) #BROKEN FIX LATER
             
             def functions(self, function):
+                print("function recieved")
                 if function == "New":
                     print("new")
                 elif function == "Open" or function == "Change Audio":
@@ -440,7 +447,11 @@ class Editor:
                     
                     print(file_path)
                     root.destroy()
-                elif function == "Save": pass
+                elif function == "Save":
+                    print("saving")
+                    with open(self.parent.parent.path, 'r') as file: data = json.load(file)
+                    data["chart"][0]["notes"] = self.parent.parent.writeNotes()
+                    with open(self.parent.parent.path, 'w') as file: json.dump(data, file, indent=4)
                 elif function == "Save As": pass
                 elif function == "Export": pass
                 else: print("lolm3")
@@ -476,8 +487,16 @@ def main():
                     if editor.noteSpacing > 9999: editor.noteSpacing = 9999
                     #print(f"zoom: {editor.noteSpacing}")
                 
+                #hold shift to scroll faster
+                elif mods & pygame.KMOD_SHIFT:
+                    editor.scroll += event.y * 10
+                    if editor.scroll < -9999: editor.scroll = -9999
+                    if editor.scroll > 0: editor.scroll = 0
+                    #print(f"zoom: {editor.noteSpacing}")
+                
+                #scroll normal speed if no key is held
                 else:
-                    editor.scroll += event.y
+                    editor.scroll += event.y * 2
                     if editor.scroll < -9999: editor.scroll = -9999
                     if editor.scroll > 0: editor.scroll = 0
                     #print(f"scroll: {editor.scroll}")
@@ -495,7 +514,6 @@ if __name__ == "__main__":
 
 """
 TO-DO
-- Zoom
-- Meter
+- Fix crash when switching between dropdowns
 - Saves to file
 """
