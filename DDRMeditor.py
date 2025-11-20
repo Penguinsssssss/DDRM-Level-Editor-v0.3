@@ -473,7 +473,7 @@ class Editor:
                     with open(self.parent.parent.path, 'w') as file: json.dump(data, file, indent=4)
                 elif function == "Save As": pass
                 elif function == "Export": pass
-                else: print("lolm3")
+                else: pass
 
 def main():
     
