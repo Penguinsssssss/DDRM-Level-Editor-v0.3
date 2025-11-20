@@ -322,6 +322,7 @@ class Editor:
             #allow buttons to update themselves
             
             for i in self.buttons:
+                
                 i.update()
                 
                 #"highlight" if mouse is ontop
@@ -329,8 +330,20 @@ class Editor:
         
         def recieveClick(self, pos, button):
             
-            #allow each button to check if they have been clicked
-            for i in self.buttons: i.recieveClick(pos, button)
+            for i in self.buttons:
+                #check if an option is clicked
+                if i.active and i.dropDownPos is not None and i.dropDownPos[0] + i.dropDownPos[2] > pos[0] > i.dropDownPos[0] and i.dropDownPos[1] + i.dropDownPos[3] > pos[1] > i.dropDownPos[1]:
+                    i.dropdownrecieveClick(pos, button)
+                    return
+            
+            #turn off all dropdowns
+            for i in self.buttons: i.active = False
+            
+            #turn on a new dropdown if it has been clicked
+            for i in self.buttons:
+                if i.pos[0] < pos[0] < i.pos[0] + i.pos[2] and i.pos[1] < pos[1] < i.pos[1] + i.pos[3]:
+                    i.active = True
+                    return
         
         class UtilButton:
             
@@ -344,6 +357,8 @@ class Editor:
                 self.isDark = False
                 self.optionhighlighted = None
                 self.active = False
+                
+                self.dropDownPos = None
             
             def update(self):
                 
@@ -353,20 +368,20 @@ class Editor:
                     
                     self.buttonDepth = 0.05
                     
-                    self.pos = pm.drawAbsolute(self.dims[0], self.dims[3] - self.dims[1], self.dims[2], self.dims[3] + (self.buttonDepth * len(self.options)), self.parent.parent.scX, self.parent.parent.scY)
+                    self.dropDownPos = pm.drawAbsolute(self.dims[0], self.dims[3] - self.dims[1], self.dims[2], self.dims[3] + (self.buttonDepth * len(self.options)), self.parent.parent.scX, self.parent.parent.scY)
                     
-                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade4"], self.pos, 0)
-                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade5"], self.pos, 2)
+                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade4"], self.dropDownPos, 0)
+                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade5"], self.dropDownPos, 2)
                     
                     #checks to see if each option is highlighted
-                    if self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]: #dim below selected option
+                    if self.dropDownPos[2] + self.dropDownPos[0] > pos[0] > self.dropDownPos[0] and self.dropDownPos[3] + self.dropDownPos[1] > pos[1] > self.dropDownPos[1]: #dim below selected option
                         yndex = pos[1] / self.parent.parent.scY
                         counter = -1
                         while yndex > self.buttonDepth:
                             yndex -= self.buttonDepth
                             counter += 1
-                        posy = self.pos[1] + ((counter) * self.buttonDepth * self.parent.parent.scY)
-                        pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade7"], [self.pos[0], posy, self.pos[2], self.buttonDepth * self.parent.parent.scY])
+                        posy = self.dropDownPos[1] + ((counter) * self.buttonDepth * self.parent.parent.scY)
+                        pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade7"], [self.dropDownPos[0], posy, self.dropDownPos[2], self.buttonDepth * self.parent.parent.scY])
                         self.optionhighlighted = counter
                     
                     else:
@@ -424,18 +439,23 @@ class Editor:
                     self.active = not self.active
             
             def dropdownrecieveClick(self, pos, button):
+                
+                if self.dropDownPos is None:
+                    self.active = False
+                    return
+                
                 #checks if option was clicked
-                if button == "LEFT" and self.pos[2] + self.pos[0] > pos[0] > self.pos[0] and self.pos[3] + self.pos[1] > pos[1] > self.pos[1]:
+                if button == "LEFT" and self.dropDownPos[2] + self.dropDownPos[0] > pos[0] > self.dropDownPos[0] and self.dropDownPos[3] + self.dropDownPos[1] > pos[1] > self.dropDownPos[1]:
                     #runs respective code
                     self.functions(self.options[self.optionhighlighted])
                 else:
                     #turns off dropdown loop
                     self.active = False
                     #passes click to Menu()
-                    self.parent.parent.recieveClick(pos, button) #BROKEN FIX LATER
+                    self.parent.parent.recieveClick(pos, button)
             
             def functions(self, function):
-                print("function recieved")
+                print(f"function: {function}")
                 if function == "New":
                     print("new")
                 elif function == "Open" or function == "Change Audio":
@@ -448,7 +468,6 @@ class Editor:
                     print(file_path)
                     root.destroy()
                 elif function == "Save":
-                    print("saving")
                     with open(self.parent.parent.path, 'r') as file: data = json.load(file)
                     data["chart"][0]["notes"] = self.parent.parent.writeNotes()
                     with open(self.parent.parent.path, 'w') as file: json.dump(data, file, indent=4)
@@ -509,11 +528,5 @@ def main():
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
+    path = r"c:\Users\Benja\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
     main()
-
-"""
-TO-DO
-- Fix crash when switching between dropdowns
-- Saves to file
-"""
