@@ -15,7 +15,7 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
    - Allow users to start playback from later in the level ?
 - Create demo song(s)
 
-# Timeline (sorted newest to oldest)
+# Timeline (Sorted newest to oldest)
 
 ## Wed Nov. 19 (night)
 - Users can now save edits made to their level under File >> Save
