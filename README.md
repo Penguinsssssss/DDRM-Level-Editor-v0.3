@@ -23,6 +23,13 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
   - Buttons no longer "miss" clicks sporadically
   - Editor no longer crashes when opening a dropdown menu with another dropdown active
 
+## Thurs Dec. 4
+- Changed mouse button handling
+  - Left click now places a new note on an empty gridspace
+  - Left click still deletes a placed note
+  - Right click will be used for other purposes
+- Code is now more thoroughly commented
+
 ## Wed Nov. 19
 - Changed system for storing notes
   - Old system was stored in beats, example beat 22
