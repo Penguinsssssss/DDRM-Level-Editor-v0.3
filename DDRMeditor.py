@@ -138,7 +138,15 @@ class Editor:
         with open(levelPath, "r") as f:
             loaded_data = json.load(f)
         
-        self.name, self.author, self.songauthor, self.length, self.bpm, self.key, self.keyscale, self.signature, self.chart = loaded_data["name"], loaded_data["author"], loaded_data["songauthor"], loaded_data["length"], loaded_data["bpm"], loaded_data["key"], loaded_data["keyscale"], loaded_data["signature"], loaded_data["chart"]
+        self.name = loaded_data["name"]
+        self.author = loaded_data["author"]
+        self.songauthor = loaded_data["songauthor"]
+        self.length = loaded_data["length"]
+        self.bpm = loaded_data["bpm"]
+        self.key = loaded_data["key"]
+        self.keyscale = loaded_data["keyscale"]
+        self.signature = loaded_data["signature"]
+        self.chart = loaded_data["chart"]
         
         self.scroll = 0
         self.noteSpacing = 15
@@ -149,6 +157,11 @@ class Editor:
         
         #create utilbar
         self.utilBar = self.UtilBar(self)
+        
+        #create playback
+        self.playback = self.Playback(self)
+        
+        self.status = "edit"
         
         #create notes
         self.notes = []
@@ -184,11 +197,18 @@ class Editor:
             for j in range(i["lanes"]):
                 
                 #draw lane
-                pygame.draw.rect(self.screen, colorPalette["notes"][i["part"] + "out"], pm.drawAbsolute(0, self.height + (j * self.spacing), 1, self.height + (j * self.spacing) + self.thickness, self.scX, self.scY), 0)
+                pygame.draw.rect(self.screen,
+                                colorPalette["notes"][i["part"] + "out"], #draw lane color as outside of notes
+                                pm.drawAbsolute(0, self.height + (j * self.spacing),
+                                                1,
+                                                self.height + (j * self.spacing) + self.thickness,
+                                                self.scX,
+                                                self.scY),
+                                0)
                 
                 #draw beats in the lane
                 pxsperbeat = self.scX / self.noteSpacing
-                beats = int(self.scX / pxsperbeat) + 10
+                beats = int(self.scX / pxsperbeat) + 56 #add buffer (temp debug)
                 
                 for k in range(beats):
                     beat = (k + self.scroll / 5) * pxsperbeat
@@ -205,7 +225,11 @@ class Editor:
                     #highlight the first note of every measure
                     size = 7 if k % self.meter_numerator == 0 else 3
                     
-                    pygame.draw.circle(self.screen, colorPalette["notes"][i["part"]], pos, size, 0)
+                    pygame.draw.circle(self.screen,
+                                        colorPalette["notes"][i["part"]],
+                                        pos,
+                                        size,
+                                        0)
                     
                     #pos in beats
                     self.nodes.append([k, j])
@@ -217,21 +241,31 @@ class Editor:
         
         #activated upon any form of mouse input from the user
         #sends signal to each screen element
-        
-        if button == "LEFT":
-            self.utilBar.recieveClick(pos, button)
-            for i in self.notes:
-                if i.recieveClick(pos, button):
-                    self.notes.remove(i)
-        elif button == "RIGHT":
-            closest = self.findClosest(pos, self.nodes)
-            measure = [(closest[0] - closest[0] % self.meter_numerator) / self.meter_numerator, closest[0] % self.meter_numerator + 1, self.meter_numerator]
-            self.notes.append(self.Note(self, [measure, closest[1] + 1, 0], "melody"))
+        if self.status == "edit":
+            if button == "LEFT":
+                
+                wasActive = self.utilBar.checkActive()
+                
+                noteClicked = False
+                for i in self.notes:
+                    if i.recieveClick(pos, button):
+                        self.notes.remove(i)
+                        noteClicked = True
+                if self.utilBar.recieveClick(pos, button):
+                    return
+                elif not noteClicked and not wasActive:
+                    closest = self.findClosest(pos, self.nodes)
+                    measure = [(closest[0] - closest[0] % self.meter_numerator) / self.meter_numerator, #measure
+                                closest[0] % self.meter_numerator + 1, #beat
+                                self.meter_numerator] #numerator
+                    self.notes.append(self.Note(self, [measure, closest[1] + 1, 0], "melody"))
+            elif button == "RIGHT":
+                for i in self.notes: i.recieveClick(pos, button)
     
     def findClosest(self, pos, nodes): #taken from online source
             closest_point = None
             min_distance = float('inf')  # Initialize with a very large distance
-
+            
             for point in nodes:
                 # Calculate Euclidean distance
                 nodepos = [(point[0] + self.scroll / 5) * (self.scX / self.noteSpacing),
@@ -252,7 +286,7 @@ class Editor:
         for i in self.notes: noteslist.append([i.npos, i.lane, i.pitch])
         return noteslist
     
-    class Note():
+    class Note:
         
         def __init__(self, parent, data, part):
             self.parent = parent
@@ -280,10 +314,17 @@ class Editor:
             else: self.pos = pygame.mouse.get_pos()
             
             #draw fill
-            pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part], self.pos, self.radius, 0)
+            pygame.draw.circle(self.parent.screen,
+                                colorPalette["notes"][self.part],
+                                self.pos, self.radius,
+                                0) #filled circle
             
             #draw outline
-            pygame.draw.circle(self.parent.screen, colorPalette["notes"][self.part + "out"], self.pos, self.radius, 5)
+            pygame.draw.circle(self.parent.screen,
+                                colorPalette["notes"][self.part + "out"],
+                                self.pos,
+                                self.radius,
+                                5) #outline
         
         def recieveClick(self, pos, button):
             
@@ -310,14 +351,20 @@ class Editor:
             self.buttons = []
             self.buttons.append(self.UtilButton(self, "File", ["New", "Open", "Save", "Save As", "Export"], [0, 0, buttonLen, self.thickness]))
             self.buttons.append(self.UtilButton(self, "Edit", ["Edit Song Info", "Change Audio"], [buttonLen, 0, buttonLen * 2, self.thickness]))
-            self.buttons.append(self.UtilButton(self, "View", ["Playback", "Themes"], [buttonLen * 2, 0, buttonLen * 3, self.thickness]))
+            self.buttons.append(self.UtilButton(self, "Themes", list(colorPalette.keys()), [buttonLen * 2, 0, buttonLen * 3, self.thickness]))
             self.buttons.append(self.UtilButton(self, "Tools", ["Undo", "Redo", "Zoom", "Edit Meter"], [buttonLen * 3, 0, buttonLen * 4, self.thickness]))
             self.buttons.append(self.UtilButton(self, "Song", ["Add Part", "Add Instrument"], [buttonLen * 4, 0, buttonLen * 5, self.thickness]))
         
         def update(self):
             
             #draw top bar
-            pygame.draw.rect(self.parent.screen, colorPalette[theme]["shade7"], pm.drawAbsolute(0, 0, 1, self.thickness, self.parent.scX, self.parent.scY), 0)
+            pygame.draw.rect(self.parent.screen,
+                            colorPalette[theme]["shade7"],
+                            pm.drawAbsolute(0, 0, 1,
+                                            self.thickness,
+                                            self.parent.scX,
+                                            self.parent.scY),
+                            0)
             
             #allow buttons to update themselves
             
@@ -334,7 +381,7 @@ class Editor:
                 #check if an option is clicked
                 if i.active and i.dropDownPos is not None and i.dropDownPos[0] + i.dropDownPos[2] > pos[0] > i.dropDownPos[0] and i.dropDownPos[1] + i.dropDownPos[3] > pos[1] > i.dropDownPos[1]:
                     i.dropdownrecieveClick(pos, button)
-                    return
+                    return True
             
             #turn off all dropdowns
             for i in self.buttons: i.active = False
@@ -343,7 +390,11 @@ class Editor:
             for i in self.buttons:
                 if i.pos[0] < pos[0] < i.pos[0] + i.pos[2] and i.pos[1] < pos[1] < i.pos[1] + i.pos[3]:
                     i.active = True
-                    return
+                    return True
+        
+        def checkActive(self):
+            for i in self.buttons:
+                if i.active: return True
         
         class UtilButton:
             
@@ -368,10 +419,19 @@ class Editor:
                     
                     self.buttonDepth = 0.05
                     
-                    self.dropDownPos = pm.drawAbsolute(self.dims[0], self.dims[3] - self.dims[1], self.dims[2], self.dims[3] + (self.buttonDepth * len(self.options)), self.parent.parent.scX, self.parent.parent.scY)
+                    self.dropDownPos = pm.drawAbsolute(self.dims[0],
+                                                        self.dims[3] - self.dims[1],
+                                                        self.dims[2],
+                                                        self.dims[3] + (self.buttonDepth * len(self.options)),
+                                                        self.parent.parent.scX,
+                                                        self.parent.parent.scY)
                     
-                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade4"], self.dropDownPos, 0)
-                    pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade5"], self.dropDownPos, 2)
+                    pygame.draw.rect(self.parent.parent.screen,
+                                    colorPalette[theme]["shade4"],
+                                    self.dropDownPos, 0)
+                    pygame.draw.rect(self.parent.parent.screen,
+                                    colorPalette[theme]["shade5"],
+                                    self.dropDownPos, 2)
                     
                     #checks to see if each option is highlighted
                     if self.dropDownPos[2] + self.dropDownPos[0] > pos[0] > self.dropDownPos[0] and self.dropDownPos[3] + self.dropDownPos[1] > pos[1] > self.dropDownPos[1]: #dim below selected option
@@ -381,7 +441,14 @@ class Editor:
                             yndex -= self.buttonDepth
                             counter += 1
                         posy = self.dropDownPos[1] + ((counter) * self.buttonDepth * self.parent.parent.scY)
-                        pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade7"], [self.dropDownPos[0], posy, self.dropDownPos[2], self.buttonDepth * self.parent.parent.scY])
+                        
+                        pygame.draw.rect(self.parent.parent.screen,
+                                        colorPalette[theme]["shade7"],
+                                        [self.dropDownPos[0],
+                                            posy,
+                                            self.dropDownPos[2],
+                                            self.buttonDepth * self.parent.parent.scY])
+                        
                         self.optionhighlighted = counter
                     
                     else:
@@ -394,7 +461,7 @@ class Editor:
                         textsize = 16 - round(len(i) / 2 if len(i) > 11 else 3)
                         
                         pm.text(self.parent.parent.screen,
-                            i,
+                            i.capitalize(),
                             pm.drawAbsolute(((self.dims[2] - self.dims[0]) / 2) + self.dims[0], self.parent.thickness / 2 + (self.buttonDepth * index), 0, 0, self.parent.parent.scX, self.parent.parent.scY)[0:2],
                             colorPalette[theme]["shade2"],
                             textsize,
@@ -404,24 +471,45 @@ class Editor:
                         index += 1
                     
                 #draw fill
-                pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade6" if self.isDark else "shade5"], pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY), 0)
+                pygame.draw.rect(self.parent.parent.screen,
+                                colorPalette[theme]["shade6" if self.isDark else "shade5"],
+                                pm.drawAbsolute(self.dims[0],
+                                                self.dims[1],
+                                                self.dims[2],
+                                                self.dims[3],
+                                                self.parent.parent.scX,
+                                                self.parent.parent.scY),
+                                0)
                 
                 #draw outline
-                pygame.draw.rect(self.parent.parent.screen, colorPalette[theme]["shade7" if self.isDark else "shade6"], pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY), 2)
+                pygame.draw.rect(self.parent.parent.screen,
+                                colorPalette[theme]["shade7" if self.isDark else "shade6"],
+                                pm.drawAbsolute(self.dims[0],
+                                                self.dims[1],
+                                                self.dims[2],
+                                                self.dims[3],
+                                                self.parent.parent.scX,
+                                                self.parent.parent.scY),
+                                2)
                 
                 #update own position based on zoom and scroll
-                self.pos = pm.drawAbsolute(self.dims[0], self.dims[1], self.dims[2], self.dims[3], self.parent.parent.scX, self.parent.parent.scY)
+                self.pos = pm.drawAbsolute(self.dims[0],
+                                            self.dims[1],
+                                            self.dims[2],
+                                            self.dims[3],
+                                            self.parent.parent.scX,
+                                            self.parent.parent.scY)
                 
                 #draw label
                 pm.text(self.parent.parent.screen,
                     self.title,
                     pm.drawAbsolute(((self.dims[2] - self.dims[0]) / 2) + self.dims[0], self.parent.thickness / 2, 0, 0, self.parent.parent.scX, self.parent.parent.scY)[0:2],
                     colorPalette[theme]["shade2"],
-                    20,
+                    18,
                     center="center",
                     font="C:/Windows/Fonts/Ebrima.ttf"
                     )
-        
+                
             def darken(self, pos):
                 
                 #highlight if mouse is ontop
@@ -456,7 +544,9 @@ class Editor:
             
             def functions(self, function):
                 print(f"function: {function}")
-                if function == "New":
+                if function in colorPalette: #change theme
+                    theme = function
+                elif function == "New":
                     print("new")
                 elif function == "Open" or function == "Change Audio":
                     root.withdraw()
@@ -464,16 +554,25 @@ class Editor:
                         title="Select a level",
                         filetypes=[("Json files", "*.json"), ("All files", "*.*")]
                     )
-                    
                     print(file_path)
                     root.destroy()
                 elif function == "Save":
                     with open(self.parent.parent.path, 'r') as file: data = json.load(file)
                     data["chart"][0]["notes"] = self.parent.parent.writeNotes()
                     with open(self.parent.parent.path, 'w') as file: json.dump(data, file, indent=4)
+                    print("file saved !")
                 elif function == "Save As": pass
                 elif function == "Export": pass
                 else: pass
+    
+    class Playback:
+        
+        def __init__(self, parent):
+            self.parent = parent
+        
+        def playback(self):
+            self.parent.scroll = 0
+            self.parent.status = "playback"
 
 def main():
     
@@ -495,7 +594,7 @@ def main():
                 running = False
             
             #updates scroll for editor
-            if event.type == pygame.MOUSEWHEEL:
+            if event.type == pygame.MOUSEWHEEL and editor.status == "edit":
                 
                 mods = pygame.key.get_mods()
                 
@@ -520,13 +619,18 @@ def main():
                     if editor.scroll > 0: editor.scroll = 0
                     #print(f"scroll: {editor.scroll}")
                 
-            if event.type == pygame.MOUSEBUTTONDOWN: #activates for any moues input, fix later
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1: editor.recieveClick(pygame.mouse.get_pos(), "LEFT")
                 elif event.button == 3: editor.recieveClick(pygame.mouse.get_pos(), "RIGHT")
+            
+            if event.type == pygame.KEYDOWN:
+                
+                if event.key == pygame.K_p: #run playback
+                    editor.playback.playback()
         
         editor.update()
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\Benja\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
+    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
     main()
