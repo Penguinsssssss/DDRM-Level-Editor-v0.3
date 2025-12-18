@@ -134,8 +134,8 @@ class Editor:
         pygame.display.set_caption('DoDoReMi Level Editor V0.3')
         
         #get filepath
-        self.path = levelPath
-        with open(levelPath, "r") as f:
+        self.path = levelPath + "\chart.json"
+        with open(self.path, "r") as f:
             loaded_data = json.load(f)
         
         self.name = loaded_data["name"]
@@ -146,10 +146,11 @@ class Editor:
         self.key = loaded_data["key"]
         self.keyscale = loaded_data["keyscale"]
         self.signature = loaded_data["signature"]
+        self.offset = loaded_data["offset"]
         self.chart = loaded_data["chart"]
         
         self.scroll = 0
-        self.noteSpacing = 15
+        self.noteSpacing = 12
         
         #consts
         self.meter_numerator = self.signature[0]
@@ -158,10 +159,9 @@ class Editor:
         #create utilbar
         self.utilBar = self.UtilBar(self)
         
-        #create playback
-        self.playback = self.Playback(self)
-        
         self.status = "edit"
+        
+        self.playback = self.Playback(self)
         
         #create notes
         self.notes = []
@@ -176,6 +176,9 @@ class Editor:
         #draw screen elements
         self.drawChart()
         self.utilBar.update()
+        
+        if self.status == "playback":
+            self.playback.update()
         
         #show updates to the user
         pygame.display.update()
@@ -208,7 +211,7 @@ class Editor:
                 
                 #draw beats in the lane
                 pxsperbeat = self.scX / self.noteSpacing
-                beats = int(self.scX / pxsperbeat) + 56 #add buffer (temp debug)
+                beats = int(self.scX / pxsperbeat) + 500 #add buffer (temp debug)
                 
                 for k in range(beats):
                     beat = (k + self.scroll / 5) * pxsperbeat
@@ -285,6 +288,73 @@ class Editor:
         noteslist = []
         for i in self.notes: noteslist.append([i.npos, i.lane, i.pitch])
         return noteslist
+    
+    def export(self):
+        
+        data = {
+            "slug": self.name, #song title
+            "composer": self.songauthor, #song author
+            "duration": 90000, #make automatic later
+            "bucket": "giovanni benadryl renalds", #seemingly never used, but still initialized to "Jackbox"
+            "scaleKey": self.key, #Ab - G#
+            "scaleType": self.keyscale, #major, minor
+            "guideStartOffset": self.offset, #no idea what this is for
+            "guide": [ #dark and light purple background animation
+                    []
+                ],
+            "hasLocalizedBackingTrack": False, #always false
+            "beatmaps": [], #will be filled with somthing from each part later
+            "preferredAssignments": [ #make automatic later
+                
+                [
+                "melody",
+                "rave-synth",
+                ],
+                
+                ],
+            "unlockType": "NumUniqueSongsCompleted", #unlock condition, comprehensive list below
+            "unlockRequirement": 2 #amount of unlock condition needed, int
+            }
+        
+        for i in self.chart:
+            
+            inputs = []
+            for j in i["notes"]:
+                
+                start = ((j[0][0] + (j[0][1] - 1) / j[0][2]) * self.meter_numerator * (60000 / self.bpm)) - self.offset #turn measures into beats into milliseconds
+                
+                inputs.append(
+                    {
+                        "start": round(start), #note placement in milliseconds
+                        "lanes": [ #lane in which note is placed, no idea why its a list but sure i guess
+                            j[1]
+                        ],
+                        "notes": [
+                            {
+                                "start": 0, #is the sound offset by anything
+                                "duration": 288, #how long does the sound play, 288 is placeholder
+                                "note": 34 #what pitch is the sound, 34 is placeholder
+                            }
+                        ]
+                    }
+                )
+            
+            data["beatmaps"].append(
+                {
+            "slug": i["part"], #melody, drums, etc
+            "type": "Discrete", #no idea what this does but things break without it
+            "category": i["part"].capitalize(), #Melody, Drums, etc
+            "difficulty": i["difficulty"], #1-5
+            "instruments": ["rave-synth"], #valid instruments
+            "instrumentRequirements": [i["part"].capitalize()], #melody, drums, etc, no idea what this does either...
+            "events": [], #seemingly never used? initializing blank seems to work out just fine
+            "inputs": inputs, #all notes
+            "laneCount": i["lanes"] #1-6
+            }
+                )
+            
+        with open(r'c:\Users\BenjaminSullivan\Downloads\exampleoutput.json', 'w') as json_file:
+            json.dump(data, json_file, indent=2)
     
     class Note:
         
@@ -562,7 +632,8 @@ class Editor:
                     with open(self.parent.parent.path, 'w') as file: json.dump(data, file, indent=4)
                     print("file saved !")
                 elif function == "Save As": pass
-                elif function == "Export": pass
+                elif function == "Export":
+                    self.parent.parent.export()
                 else: pass
     
     class Playback:
@@ -570,13 +641,23 @@ class Editor:
         def __init__(self, parent):
             self.parent = parent
         
-        def playback(self):
-            self.parent.scroll = 0
-            self.parent.status = "playback"
+        def update(self):
+            
+            pxsperbeat = self.parent.scX / self.parent.noteSpacing
+            pos = pxsperbeat * 1
+            
+            ypospm = self.parent.utilBar.thickness
+            ypos = pm.drawAbsolute(0, ypospm, 0, 0, self.parent.scX, self.parent.scY)[1]
+            
+            pygame.draw.rect(self.parent.screen, "#00FF99", [pos - 2.5, ypos, 5, 900], 0)
 
 def main():
     
+    tdebug = 0
+    songPlayed = False
+    
     pygame.init()
+    pygame.mixer.init()
     
     #create editor object
     editor = Editor(path)
@@ -586,51 +667,89 @@ def main():
     editor.update()
     while running:
         
-        #game runs at 60fps
-        time_delta = clock.tick(60)/1000.0
+        if editor.status == "edit":
         
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+            #game runs at 60fps
+            time_delta = clock.tick(60)/1000.0
             
-            #updates scroll for editor
-            if event.type == pygame.MOUSEWHEEL and editor.status == "edit":
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
                 
-                mods = pygame.key.get_mods()
+                #updates scroll for editor
+                if event.type == pygame.MOUSEWHEEL and editor.status == "edit":
+                    
+                    mods = pygame.key.get_mods()
+                    
+                    #hold alt to zoom
+                    if mods & pygame.KMOD_ALT:
+                        editor.noteSpacing -= event.y
+                        if editor.noteSpacing < 1: editor.noteSpacing = 1
+                        if editor.noteSpacing > 9999: editor.noteSpacing = 9999
+                        print(f"zoom: {editor.noteSpacing}")
+                    
+                    #hold shift to scroll faster
+                    elif mods & pygame.KMOD_SHIFT:
+                        editor.scroll += event.y * 10
+                        if editor.scroll < -9999: editor.scroll = -9999
+                        if editor.scroll > 0: editor.scroll = 0
+                        print(f"scroll: {editor.noteSpacing}")
+                    
+                    #scroll normal speed if no key is held
+                    else:
+                        editor.scroll += event.y * 2
+                        if editor.scroll < -9999: editor.scroll = -9999
+                        if editor.scroll > 0: editor.scroll = 0
+                        print(f"scroll: {editor.scroll}")
+                    
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1: editor.recieveClick(pygame.mouse.get_pos(), "LEFT")
+                    elif event.button == 3: editor.recieveClick(pygame.mouse.get_pos(), "RIGHT")
                 
-                #hold alt to zoom
-                if mods & pygame.KMOD_ALT:
-                    editor.noteSpacing -= event.y
-                    if editor.noteSpacing < 1: editor.noteSpacing = 1
-                    if editor.noteSpacing > 9999: editor.noteSpacing = 9999
-                    #print(f"zoom: {editor.noteSpacing}")
-                
-                #hold shift to scroll faster
-                elif mods & pygame.KMOD_SHIFT:
-                    editor.scroll += event.y * 10
-                    if editor.scroll < -9999: editor.scroll = -9999
-                    if editor.scroll > 0: editor.scroll = 0
-                    #print(f"zoom: {editor.noteSpacing}")
-                
-                #scroll normal speed if no key is held
-                else:
-                    editor.scroll += event.y * 2
-                    if editor.scroll < -9999: editor.scroll = -9999
-                    if editor.scroll > 0: editor.scroll = 0
-                    #print(f"scroll: {editor.scroll}")
-                
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1: editor.recieveClick(pygame.mouse.get_pos(), "LEFT")
-                elif event.button == 3: editor.recieveClick(pygame.mouse.get_pos(), "RIGHT")
+                if event.type == pygame.KEYDOWN:
+                    
+                    if event.key == pygame.K_p: #run playback
+                        pygame.mixer.music.load(path + r"\backing.mp3")
+                        editor.status = "playback"
+                        editor.scroll = 5
             
-            if event.type == pygame.KEYDOWN:
-                
-                if event.key == pygame.K_p: #run playback
-                    editor.playback.playback()
+            editor.update()
         
-        editor.update()
+        elif editor.status == "playback":
+            
+            time_delta = clock.tick(30)/1000.0
+            
+            beatsecond = (1 / 60) * 10 #one beat per second
+            beattime = (beatsecond * editor.bpm) / 60
+            
+            editor.scroll -= round(beattime, 4)
+            tdebug += 1
+            
+            if tdebug * (1000/60) > editor.offset and not songPlayed:
+                pygame.mixer.music.play()
+                songPlayed = True
+            
+            editor.update()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\ddrm_library_ruins.json"
+    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\library_ruins"
     main()
+
+
+
+"""
+- HasWatchedCredits
+- NumUniqueSongsCompleted
+- NumUniqueSongsPerfected
+- NumUniqueSongsPlayed
+- NumUniqueSongsSurvived
+- TotalPartsPerfected
+- TotalSongsPlayed
+- TotalTimesEaten
+- TotalTimesSurvived
+"""
