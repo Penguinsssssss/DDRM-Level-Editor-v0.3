@@ -17,6 +17,12 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
 
 # Timeline (Sorted newest to oldest)
 
+## Thurs Dec. 18
+- Added Export feature
+  - Converts from notes that are stored in measures to milliseconds
+  - Adds all of the placeholder info required for Jackbox
+  - Technically usable, currently causes a crash halfway through song, unsure why
+
 ## Thurs Dec. 4
 - Changed mouse button handling
   - Left click now places a new note on an empty gridspace
