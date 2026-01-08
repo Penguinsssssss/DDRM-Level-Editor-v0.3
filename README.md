@@ -17,6 +17,26 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
 
 # Timeline (Sorted newest to oldest)
 
+## Thurs Jan. 8 + Winter Break
+- Exporting
+  - Users can now use the export button to get a fully funcitonal config.json file (ddrm chart)
+  - File can be placed directly in game by user
+  - Small sync issues, unsure if it is due to my choice in song, lag, or notation
+  - Will be reworked to port directly into ddrm with one button
+- Selecting
+  - Changed mouse button functionality
+    - Used to be left click to delete
+    - Used to be right click to place
+    - Now is left click to place/delete
+    - Now is right click to select
+    - Now is right click on empty space to create a dragSelect
+  - Selected notes can be moved with WASD or arrow keys
+  - Selected notes can be deleted with BACKSPACE or DEL
+  - Will add copy/paste later
+- Parts
+  - Began work on ui element to select which part is visible
+  - Changed chart.json information storing system to accomodate multiple parts in the same song
+
 ## Thurs Dec. 18
 - Added Export feature
   - Converts from notes that are stored in measures to milliseconds
