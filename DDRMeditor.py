@@ -106,8 +106,9 @@ colorPalette = {
         "del3": "#881111", #selected variants
         "edit3": "#118811",
         "play3": "#333388",
+        "drag": "#77FF77" #used for dragselect
         },
-    "notes": {
+    "notes": { #colors used to denote differing parts
         "drums": "#e12929",
         "drumsout": "#940c0c",
         "perc": "#e9852d",
@@ -120,6 +121,7 @@ colorPalette = {
         "melodyout": "#0b4b9c",
         "bass": "#6b3ad8",
         "bassout": "#3c188c",
+        "select": "#999999", #temp, possibly change based on note in the future
         }
 }
 
@@ -138,6 +140,7 @@ class Editor:
         with open(self.path, "r") as f:
             loaded_data = json.load(f)
         
+        #setup info from json
         self.name = loaded_data["name"]
         self.author = loaded_data["author"]
         self.songauthor = loaded_data["songauthor"]
@@ -149,34 +152,58 @@ class Editor:
         self.offset = loaded_data["offset"]
         self.chart = loaded_data["chart"]
         
+        #how far the user has scrolled in the chart
         self.scroll = 0
+        
+        #zoom; how many beats are fit on the screen at a time
         self.noteSpacing = 12
         
-        #consts
+        #allows placing notes in differing time signatures
         self.meter_numerator = self.signature[0]
         self.meter_denominator = self.signature[1]
         
         #create utilbar
         self.utilBar = self.UtilBar(self)
         
+        #switch between editing and playback (possibly menu aswell)
         self.status = "edit"
         
+        #create playback object
         self.playback = self.Playback(self)
         
         #create notes
         self.notes = []
         for i in self.chart[0]["notes"]:
             self.notes.append(self.Note(self, i, self.chart[0]["part"]))
+        
+        # drag-select system
+        self.dragging = False
+        self.dragStart = None
+        self.dragEnd = None
+        
+        self.partSelects = []
+        for i in self.chart:
+            self.partSelects.append(self.PartSelect(self, i["part"], len(self.partSelects)))
+        
+        for i in self.partSelects: print(i.part)
+        
+        self.inFocusPart = self.chart[0]
     
     def update(self):
         
         #fill screen
         self.screen.fill(colorPalette[theme]["shade6"])
+        self.drawBackdrop()
         
         #draw screen elements
         self.drawChart()
         self.utilBar.update()
+        for i in self.partSelects: i.update()
         
+        #draw dragselect
+        self.drawDragSelect()
+        
+        #update playback
         if self.status == "playback":
             self.playback.update()
         
@@ -185,66 +212,121 @@ class Editor:
     
     def drawChart(self):
         
-        #for i in each individual part
-        for i in self.chart:
+        #draw each part overlayed ontop of one another, will change to one part at a time later
+        i = self.inFocusPart
             
-            #consts
-            self.height = 0.25
-            self.spacing = 0.08
-            self.thickness = 0.005
+        #consts
+        self.height = 0.25
+        self.spacing = 0.08
+        self.thickness = 0.005
+        
+        #create blank list of valid nodes
+        self.nodes = []
+        
+        #create lanes
+        for j in range(i["lanes"]):
             
-            #draw lanes in backdrop
+            #draw a lane
+            pygame.draw.rect(self.screen,
+                            colorPalette["notes"][i["part"] + "out"], #draw lane color as outside of notes
+                            pm.drawAbsolute(0, self.height + (j * self.spacing),
+                                            1,
+                                            self.height + (j * self.spacing) + self.thickness,
+                                            self.scX,
+                                            self.scY),
+                            0)
             
-            self.nodes = []
+            #draw nodes in the lane
+            pxspernode = self.scX / self.noteSpacing
+            numnodes = int(self.scX / pxspernode) + 500 #add buffer (temp debug)
             
-            for j in range(i["lanes"]):
+            for k in range(numnodes):
+                node = (k + self.scroll / 5) * pxspernode
                 
-                #draw lane
-                pygame.draw.rect(self.screen,
-                                colorPalette["notes"][i["part"] + "out"], #draw lane color as outside of notes
-                                pm.drawAbsolute(0, self.height + (j * self.spacing),
-                                                1,
-                                                self.height + (j * self.spacing) + self.thickness,
-                                                self.scX,
-                                                self.scY),
-                                0)
+                y = pm.drawAbsolute(
+                    0,
+                    (self.height + (j * self.spacing)) + (self.thickness / 2),
+                    0, 0, self.scX, self.scY
+                )[1] #only get y val
                 
-                #draw beats in the lane
-                pxsperbeat = self.scX / self.noteSpacing
-                beats = int(self.scX / pxsperbeat) + 500 #add buffer (temp debug)
+                #pos in pixels
+                pos = [node, y]
                 
-                for k in range(beats):
-                    beat = (k + self.scroll / 5) * pxsperbeat
-                    
-                    y = pm.drawAbsolute(
-                        0,
-                        (self.height + (j * self.spacing)) + (self.thickness / 2),
-                        0, 0, self.scX, self.scY
-                    )[1] #only get y val
-                    
-                    #pos in pixels
-                    pos = [beat, y]
-                    
-                    #highlight the first note of every measure
-                    size = 7 if k % self.meter_numerator == 0 else 3
-                    
-                    pygame.draw.circle(self.screen,
-                                        colorPalette["notes"][i["part"]],
-                                        pos,
-                                        size,
-                                        0)
-                    
-                    #pos in beats
-                    self.nodes.append([k, j])
+                #highlight the first note of every measure
+                size = 7 if k % self.meter_numerator == 0 else 3
+                
+                pygame.draw.circle(self.screen,
+                                    colorPalette["notes"][i["part"]],
+                                    pos,
+                                    size,
+                                    0)
+                
+                #pos in nodes
+                self.nodes.append([k, j])
+        
+        #allow each note object to draw itself
+        for j in self.notes: j.update() #NOTE SELF.NOTES DOES NOT UPDATE AUTOMATICALLY WITH INFOCUSPART FIX LATER
+    
+    def drawBackdrop(self):
+        
+        beatxlength = 1 / self.noteSpacing #account for zoom
+        
+        for i in range(self.noteSpacing):
             
-            #allow each note object to draw itself
-            for j in self.notes: j.update()
+            #move to account for scroll
+            scrolloffset = (self.scroll / (5 * self.noteSpacing)) % 1 #wrap back around the screen if too far
+            
+            #place start and end of bar based on zoom
+            start = (i * beatxlength + scrolloffset) % 1
+            end = start + beatxlength
+            
+            #only color if even number (ODD NUMBER BREAKS THIS!!! FIX LATER (currently cheating by not allowing the user to set an odd number))
+            if (i % self.noteSpacing) % 2 == 0: pygame.draw.rect(self.screen, colorPalette[theme]["shade5"], pm.drawAbsolute(start, 0, end, 1, self.scX, self.scY), 0)
+    
+    def drawDragSelect(self):
+        
+        #draw drag selection box
+        if self.dragging and self.dragStart and self.dragEnd:
+            xs, ys = self.dragStart
+            xe, ye = self.dragEnd
+            left = min(xs, xe)
+            top = min(ys, ye)
+            width = abs(xs - xe)
+            height = abs(ys - ye)
+            pygame.draw.rect(self.screen, colorPalette["other"]["drag"], (left, top, width, height), 2)
+    
+    def finishDragSelect(self):
+        
+        #get drag selection box
+        xs, ys = self.dragStart
+        xe, ye = self.dragEnd
+        left = min(xs, xe)
+        right = max(xs, xe)
+        top = min(ys, ye)
+        bottom = max(ys, ye)
+        
+        #select highlighted notes
+        for i in self.notes:
+            nx, ny = i.pos
+            if left <= nx <= right and top <= ny <= bottom:
+                i.selected = True
+            else:
+                i.selected = False
+        
+        #setup for new drag
+        self.dragging = False
+        self.dragStart = None
+        self.dragEnd = None
     
     def recieveClick(self, pos, button):
         
         #activated upon any form of mouse input from the user
         #sends signal to each screen element
+        
+        #only allow users to modify chart during editing
         if self.status == "edit":
+            
+            #deleting
             if button == "LEFT":
                 
                 wasActive = self.utilBar.checkActive()
@@ -262,8 +344,53 @@ class Editor:
                                 closest[0] % self.meter_numerator + 1, #beat
                                 self.meter_numerator] #numerator
                     self.notes.append(self.Note(self, [measure, closest[1] + 1, 0], "melody"))
+            
+            #selecting and dragselecting
             elif button == "RIGHT":
-                for i in self.notes: i.recieveClick(pos, button)
+                
+                #check for right click on empty space
+                selected = False
+                
+                for i in self.notes:
+                    if i.recieveClick(pos, button): selected = True
+                
+                #dragselect
+                if not selected:
+                    self.dragging = True
+                    self.dragStart = pos
+                    self.dragEnd = pos
+    
+    def recieveKey(self, key):
+        
+        #delete selection
+        if key == pygame.K_DELETE or key == pygame.K_BACKSPACE:
+            for i in reversed(self.notes):
+                if i.selected: self.notes.remove(i)
+        
+        #move selection up
+        if key == pygame.K_w or key == pygame.K_UP:
+            for i in self.notes:
+                if i.selected: i.lane = max(i.lane - 1, 1)
+        
+        #move selection down
+        if key == pygame.K_s or key == pygame.K_DOWN:
+            for i in self.notes:
+                if i.selected: i.lane = min(i.lane + 1, 6) #NOTE HARDCODED TO 6, FIX LATER
+        
+        #move selection left
+        if key == pygame.K_a or key == pygame.K_LEFT:
+            for i in self.notes:
+                if i.selected:
+                    i.updateMeasure(-1)
+        
+        #move selection right
+        if key == pygame.K_d or key == pygame.K_RIGHT:
+            for i in self.notes:
+                if i.selected:
+                    i.updateMeasure(1)
+        
+        if key == pygame.K_t:
+            self.inFocusPart = self.chart[1]
     
     def findClosest(self, pos, nodes): #taken from online source
             closest_point = None
@@ -282,27 +409,44 @@ class Editor:
             return closest_point
     
     def devdebug(self):
+        #dev
         for i in self.notes: print(i.npos)
     
     def writeNotes(self):
+        #dev
         noteslist = []
         for i in self.notes: noteslist.append([i.npos, i.lane, i.pitch])
         return noteslist
     
     def export(self):
         
+        #initialize to a very large number (will add logic later)
+        duration = 90000
+        
+        #guide is jackboxes system for keeping track of beats (stored in ms)
+        guide = []
+        
+        #create guide
+        i = 0
+        while i < duration - (60000 / self.bpm) * 4:
+            
+            #upload in batches of four (jackboxes system)
+            batch = []
+            for j in range(4):
+                batch.append(round(i))
+                i += 60000 / self.bpm
+            guide.append(batch)
+        
         data = {
             "slug": self.name, #song title
             "composer": self.songauthor, #song author
-            "duration": 90000, #make automatic later
-            "bucket": "giovanni benadryl renalds", #seemingly never used, but still initialized to "Jackbox"
+            "duration": duration, #make automatic later
+            "bucket": "Jackbox", #seemingly never used, but still initialized to "Jackbox"
             "scaleKey": self.key, #Ab - G#
             "scaleType": self.keyscale, #major, minor
             "guideStartOffset": self.offset, #no idea what this is for
-            "guide": [ #dark and light purple background animation
-                    []
-                ],
-            "hasLocalizedBackingTrack": False, #always false
+            "guide": guide, #dark and light purple background animation
+            "hasLocalizedBackingTrack": False, #i think this is meant to help people impliment their own songs, but I don't know how it works, nor do I have the actual individual recordings of parts of the songs I am using
             "beatmaps": [], #will be filled with somthing from each part later
             "preferredAssignments": [ #make automatic later
                 
@@ -316,7 +460,8 @@ class Editor:
             "unlockRequirement": 2 #amount of unlock condition needed, int
             }
         
-        for i in self.chart:
+        #add parts to beatmap field
+        for i in self.chart: #for i in all parts
             
             inputs = []
             for j in i["notes"]:
@@ -327,7 +472,7 @@ class Editor:
                     {
                         "start": round(start), #note placement in milliseconds
                         "lanes": [ #lane in which note is placed, no idea why its a list but sure i guess
-                            j[1]
+                            j[1] - 1
                         ],
                         "notes": [
                             {
@@ -352,36 +497,38 @@ class Editor:
             "laneCount": i["lanes"] #1-6
             }
                 )
-            
-        with open(r'c:\Users\BenjaminSullivan\Downloads\exampleoutput.json', 'w') as json_file:
+        
+        #hotwired to downloads, make this hook into jackbox directly eventually
+        with open(r'c:\Users\Benja\Downloads\config.json', 'w') as json_file:
             json.dump(data, json_file, indent=2)
     
     class Note:
         
         def __init__(self, parent, data, part):
+            
+            #setup valid data
             self.parent = parent
             self.npos = data[0]
+            print(self.npos)
             self.measure = (self.npos[0] + (self.npos[1] - 1) / self.npos[2]) * self.parent.meter_numerator
             self.lane = data[1]
             self.pitch = data[2]
             self.part = part
             
-            self.held = False
-            
-            self.isDark = False
+            #change color and behavior if selected
+            self.selected = False
         
         def update(self):
             
+            #consts
             height = 0.25
             spacing = 0.08 #per beat
             thickness = 0.005
             self.radius = 20
             
             #update position based on zoom and scroll
-            if self.held == False:
-                self.pos = [(self.measure + self.parent.scroll / 5) * (self.parent.scX / self.parent.noteSpacing),
-                            (height * self.parent.scY) + ((self.lane - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
-            else: self.pos = pygame.mouse.get_pos()
+            self.pos = [(self.measure + self.parent.scroll / 5) * (self.parent.scX / self.parent.noteSpacing),
+                        (height * self.parent.scY) + ((self.lane - 1) * (spacing * self.parent.scY)) + ((thickness * self.parent.scY) / 2)]
             
             #draw fill
             pygame.draw.circle(self.parent.screen,
@@ -391,29 +538,53 @@ class Editor:
             
             #draw outline
             pygame.draw.circle(self.parent.screen,
-                                colorPalette["notes"][self.part + "out"],
+                                colorPalette["notes"][self.part + "out"] if not self.selected else colorPalette["notes"]["select"],
                                 self.pos,
                                 self.radius,
                                 5) #outline
         
         def recieveClick(self, pos, button):
             
+            #distance eq
             distance = math.sqrt((pos[0] - self.pos[0]) ** 2 + (pos[1] - self.pos[1]) ** 2)
             
             #activate if within note size
             
             if distance < self.radius:
                 if button == "LEFT": #delete
-                    return True
-                else: self.isDark = True #darken
-            else: self.isDark = False #undarken
+                    return True #tell code that a note has been selected
+                else:
+                    self.selected = True #select
+                    return True #tell code that a note has been selected
+            
+            else: self.selected = False #unselect
+        
+        def updateMeasure(self, value):
+            
+            #moves the note over one beat BASED ON INDIVIDUAL numerators. Fix later PLEASE
+            
+            if value == -1:
+                if self.npos[1] == 1:
+                    self.npos[0] -= 1
+                    self.npos[1] = self.npos[2]
+                else: self.npos[1] -= 1
+            
+            elif value == 1:
+                if self.npos[1] == self.npos[2]:
+                    self.npos[0] += 1
+                    self.npos[1] = 1
+                else: self.npos[1] += 1
+            
+            self.measure = (self.npos[0] + (self.npos[1] - 1) / self.npos[2]) * self.parent.meter_numerator
     
     class UtilBar:
         
         def __init__(self, parent):
             
+            #setup valid data
             self.parent = parent
             
+            #consts
             self.thickness = 0.05
             buttonLen = 0.07
             
@@ -437,12 +608,11 @@ class Editor:
                             0)
             
             #allow buttons to update themselves
-            
             for i in self.buttons:
                 
                 i.update()
                 
-                #"highlight" if mouse is ontop
+                #highlight if mouse is ontop
                 i.darken(pygame.mouse.get_pos())
         
         def recieveClick(self, pos, button):
@@ -463,22 +633,26 @@ class Editor:
                     return True
         
         def checkActive(self):
+            #check if any field is open
             for i in self.buttons:
                 if i.active: return True
         
         class UtilButton:
             
             def __init__(self, parent, title, options, dims):
+                
+                #setup valid data
                 self.parent = parent
                 self.title = title
                 self.options = options
                 self.dims = dims
                 
-                #"highlight"
+                #highlight globals
                 self.isDark = False
                 self.optionhighlighted = None
                 self.active = False
                 
+                #globals
                 self.dropDownPos = None
             
             def update(self):
@@ -579,7 +753,7 @@ class Editor:
                     center="center",
                     font="C:/Windows/Fonts/Ebrima.ttf"
                     )
-                
+            
             def darken(self, pos):
                 
                 #highlight if mouse is ontop
@@ -636,6 +810,27 @@ class Editor:
                     self.parent.parent.export()
                 else: pass
     
+    class PartSelect:
+        
+        def __init__(self, parent, part, index):
+            self.parent = parent
+            self.part = part
+            self.index = index
+            print(self.index)
+        
+        def update(self):
+            width = 0.09
+            x = width * self.index
+            y = self.parent.utilBar.thickness
+            x2 = x + width
+            y2 = y + 0.03
+            
+            pygame.draw.rect(self.parent.screen, colorPalette["notes"][self.part], pm.drawAbsolute(x, y, x2, y2, self.parent.scX, self.parent.scY), 0)
+            pygame.draw.rect(self.parent.screen, colorPalette["notes"][self.part + "out"], pm.drawAbsolute(x, y, x2, y2, self.parent.scX, self.parent.scY), 2)
+        
+        def recieveClick(self, pos, button):
+            pass
+    
     class Playback:
         
         def __init__(self, parent):
@@ -672,6 +867,7 @@ def main():
             #game runs at 60fps
             time_delta = clock.tick(60)/1000.0
             
+            #event handling
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -683,7 +879,7 @@ def main():
                     
                     #hold alt to zoom
                     if mods & pygame.KMOD_ALT:
-                        editor.noteSpacing -= event.y
+                        editor.noteSpacing -= event.y * 2
                         if editor.noteSpacing < 1: editor.noteSpacing = 1
                         if editor.noteSpacing > 9999: editor.noteSpacing = 9999
                         print(f"zoom: {editor.noteSpacing}")
@@ -697,22 +893,38 @@ def main():
                     
                     #scroll normal speed if no key is held
                     else:
-                        editor.scroll += event.y * 2
+                        editor.scroll += event.y * 1
                         if editor.scroll < -9999: editor.scroll = -9999
                         if editor.scroll > 0: editor.scroll = 0
                         print(f"scroll: {editor.scroll}")
-                    
+                
+                #pass clicks to editor
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1: editor.recieveClick(pygame.mouse.get_pos(), "LEFT")
                     elif event.button == 3: editor.recieveClick(pygame.mouse.get_pos(), "RIGHT")
                 
+                #pass keypresses to editor
                 if event.type == pygame.KEYDOWN:
                     
+                    #dev playback hotkey
                     if event.key == pygame.K_p: #run playback
                         pygame.mixer.music.load(path + r"\backing.mp3")
                         editor.status = "playback"
                         editor.scroll = 5
+                    
+                    else:
+                        editor.recieveKey(event.key)
+                
+                #update dragend
+                if event.type == pygame.MOUSEMOTION and editor.dragging: editor.dragEnd = event.pos
+                
+                #end drag
+                elif event.type == pygame.MOUSEBUTTONUP and event.button == 3: #right mouse
+                    if editor.dragging:
+                        editor.dragging = False
+                        editor.finishDragSelect()
             
+            #step editor
             editor.update()
         
         elif editor.status == "playback":
