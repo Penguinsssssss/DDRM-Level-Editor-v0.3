@@ -17,6 +17,10 @@ Benjamin Sullivan junior year semester 1 Programming Studio project
 
 # Timeline (Sorted newest to oldest)
 
+## Sun Jan. 11
+- Added Undo/Redo
+- Added Copy/Paste
+
 ## Thurs Jan. 8 + Winter Break
 - Exporting
   - Users can now use the export button to get a fully funcitonal config.json file (ddrm chart)
