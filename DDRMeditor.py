@@ -9,6 +9,7 @@ import os
 import json
 import math
 import time
+import copy
 
 path = None
 
@@ -188,6 +189,16 @@ class Editor:
         for i in self.partSelects: print(i.part)
         
         self.inFocusPart = self.chart[0]
+        
+        #undo and redo history are called "stacks"
+        self.undo_stack = []
+        self.redo_stack = []
+        
+        #save starting to state to undo
+        self.push_undo()
+        
+        #copy paste
+        self.clipboard = []
     
     def update(self):
         
@@ -334,6 +345,7 @@ class Editor:
                 noteClicked = False
                 for i in self.notes:
                     if i.recieveClick(pos, button):
+                        self.push_undo()
                         self.notes.remove(i)
                         noteClicked = True
                 if self.utilBar.recieveClick(pos, button):
@@ -343,6 +355,7 @@ class Editor:
                     measure = [(closest[0] - closest[0] % self.meter_numerator) / self.meter_numerator, #measure
                                 closest[0] % self.meter_numerator + 1, #beat
                                 self.meter_numerator] #numerator
+                    self.push_undo()
                     self.notes.append(self.Note(self, [measure, closest[1] + 1, 0], "melody"))
             
             #selecting and dragselecting
@@ -364,27 +377,32 @@ class Editor:
         
         #delete selection
         if key == pygame.K_DELETE or key == pygame.K_BACKSPACE:
+            self.push_undo()
             for i in reversed(self.notes):
                 if i.selected: self.notes.remove(i)
         
         #move selection up
         if key == pygame.K_w or key == pygame.K_UP:
+            self.push_undo()
             for i in self.notes:
                 if i.selected: i.lane = max(i.lane - 1, 1)
         
         #move selection down
         if key == pygame.K_s or key == pygame.K_DOWN:
+            self.push_undo()
             for i in self.notes:
                 if i.selected: i.lane = min(i.lane + 1, 6) #NOTE HARDCODED TO 6, FIX LATER
         
         #move selection left
         if key == pygame.K_a or key == pygame.K_LEFT:
+            self.push_undo()
             for i in self.notes:
                 if i.selected:
                     i.updateMeasure(-1)
         
         #move selection right
         if key == pygame.K_d or key == pygame.K_RIGHT:
+            self.push_undo()
             for i in self.notes:
                 if i.selected:
                     i.updateMeasure(1)
@@ -501,6 +519,125 @@ class Editor:
         #hotwired to downloads, make this hook into jackbox directly eventually
         with open(r'c:\Users\Benja\Downloads\config.json', 'w') as json_file:
             json.dump(data, json_file, indent=2)
+    
+    def snapshot(self):
+        
+        #store a snaphop of the notes
+        
+        data = []
+        
+        for i in self.notes:
+            data.append({
+                "npos": copy.deepcopy(i.npos),
+                "lane": i.lane,
+                "pitch": i.pitch,
+                "part": i.part
+            })
+        
+        return data
+    
+    def restore_snapshot(self, data):
+        
+        #set notes to a previous snapshot
+        self.notes = []
+        
+        for i in data:
+            note = self.Note(self, [i["npos"], i["lane"], i["pitch"]], i["part"])
+            self.notes.append(note)
+    
+    def push_undo(self):
+        
+        self.undo_stack.append(self.snapshot())
+        
+        if len(self.undo_stack) > 200: #cap memory at 200
+            self.undo_stack.pop(0)
+            
+        self.redo_stack.clear()
+    
+    def undo(self):
+        
+        if len(self.undo_stack) <= 1:
+            return #nothing to undo
+        
+        #retreve last state
+        state = self.undo_stack.pop()
+        
+        #set redo stack to prior state
+        self.redo_stack.append(state)
+        
+        #set current state to last snapshot
+        self.restore_snapshot(self.undo_stack[-1])
+    
+    def redo(self):
+        if not self.redo_stack:
+            return #nothing to redo
+        
+        #grab snapshot from stack
+        state = self.redo_stack.pop()
+        
+        #allow user to undo a redo
+        self.undo_stack.append(state)
+        
+        #load snapshot
+        self.restore_snapshot(state)
+    
+    def copy(self):
+        selected = [i for i in self.notes if i.selected]
+        if len(selected) == 0:
+            return #nothing to copy
+        
+        beats = self.meter_numerator
+        
+        #convert notes to absolute beat indices
+        abs_beats = []
+        for n in selected:
+            absbeat = n.npos[0] * beats + (n.npos[1] - 1)
+            abs_beats.append(absbeat)
+            
+        min_beat = min(abs_beats)
+        min_lane = min(n.lane for n in selected)
+        
+        #empty clipboard
+        self.clipboard = []
+        
+        #store notes in clipboard dict
+        for i in selected:
+            absbeat = i.npos[0] * beats + (i.npos[1] - 1)
+            self.clipboard.append({
+                "beat": absbeat - min_beat, #relative beat offset
+                "lane": i.lane - min_lane,
+                "pitch": i.pitch,
+                "part": i.part
+            })
+    
+    def paste(self):
+        if not self.clipboard:
+            return #nothing to paste
+        
+        #store pre-paste state
+        self.push_undo()
+        
+        #find leftmost node
+        beats = self.meter_numerator
+        left_node = int(-self.scroll / 5)
+        
+        #unselect selected notes
+        for i in self.notes: i.selected = False
+        
+        for i in self.clipboard:
+            
+            new_beat = left_node + i["beat"]
+            new_lane = 1 + i["lane"]
+            
+            #convert absolute beat index back to npos
+            measureidx = new_beat // beats
+            beat = (new_beat % beats) + 1
+            newnpos = [measureidx, beat, beats]
+            
+            #append note
+            note = self.Note(self, [newnpos, new_lane, i["pitch"]], i["part"])
+            note.selected = True
+            self.notes.append(note)
     
     class Note:
         
@@ -808,6 +945,8 @@ class Editor:
                 elif function == "Save As": pass
                 elif function == "Export":
                     self.parent.parent.export()
+                elif function == "Undo": self.parent.parent.undo()
+                elif function == "Redo": self.parent.parent.redo()
                 else: pass
     
     class PartSelect:
@@ -923,6 +1062,27 @@ def main():
                     if editor.dragging:
                         editor.dragging = False
                         editor.finishDragSelect()
+                
+                #typical keyboard shortcuts
+                if event.type == pygame.KEYUP:
+                    mods = pygame.key.get_mods()
+                    #undo/redo
+                    if mods & pygame.KMOD_CTRL:
+                        if event.key == pygame.K_z:
+                            editor.undo()
+                            continue
+                        if event.key == pygame.K_y:
+                            editor.redo()
+                            continue
+                    
+                    #copy/paste
+                    if mods & pygame.KMOD_CTRL:
+                        if event.key == pygame.K_c:
+                            editor.copy()
+                            continue
+                        if event.key == pygame.K_v:
+                            editor.paste()
+                            continue
             
             #step editor
             editor.update()
@@ -949,7 +1109,7 @@ def main():
 
 #code is meant to be run as a package in the menu script
 if __name__ == "__main__":
-    path = r"c:\Users\Benjaminsullivan\Downloads\ddrm3\testsongs\library_ruins"
+    path = r"c:\Users\Benja\Downloads\ddrm3\testsongs\library_ruins"
     main()
 
 
